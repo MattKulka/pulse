@@ -66,3 +66,33 @@ body {
     Arial,
     sans-serif;
 }
+
+/*
+ * Time-series bar animation. A single class drives both behaviours:
+ *  - Enter: newly-mounted bars run `ts-bar-grow` once, scaling up from their
+ *    own baseline (transform-origin: bottom), so bars grow in on first load and
+ *    whenever a new time bucket appears.
+ *  - Update: persisting bars smoothly transition `y`/`height` when their count
+ *    changes (e.g. the 60s refetch or a brush filter), including easing down to
+ *    zero — a graceful "exit" for buckets that lose all their events.
+ * All motion is gated behind `prefers-reduced-motion: no-preference`.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .ts-bar {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: ts-bar-grow 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    transition:
+      y 400ms cubic-bezier(0.22, 1, 0.36, 1),
+      height 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes ts-bar-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
