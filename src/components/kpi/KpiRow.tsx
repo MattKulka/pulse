@@ -37,10 +37,13 @@ export function KpiRow() {
     allBucketKeys: ALL_BUCKET_KEYS,
   })
 
-  // Zeros are fine for a genuinely empty feed ('no-data'), but when the row is
-  // empty because of a user-controllable filter (all series hidden, or an empty
-  // brush window) say so rather than showing a misleading row of 0s.
-  if (reason === 'all-hidden' || reason === 'brush-empty') {
+  // Whenever the visible set is empty (any non-null reason — all series hidden,
+  // an empty brush window, OR filters that happen to leave 0 in view while the
+  // feed still has data), show the context-aware empty state rather than a
+  // misleading row of 0s. `emptyReason` only returns non-null when the filtered
+  // count is 0, so a genuinely-empty feed reads "no data" and a filter-caused
+  // emptiness never masquerades as real zeros.
+  if (reason !== null) {
     return (
       <div className="rounded-xl border border-border bg-surface-elevated shadow-sm">
         <EmptyState reason={reason} />
