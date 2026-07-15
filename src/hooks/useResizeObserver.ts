@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useCallback, useRef, useState } from 'react'
 
 export interface Size {
   width: number
@@ -6,30 +6,40 @@ export interface Size {
 }
 
 /**
- * Track an element's content-box size via `ResizeObserver`. Returns a ref to
- * attach to the observed element and its latest measured size.
+ * Track an element's content-box size via `ResizeObserver`. Returns a
+ * **callback ref** to attach to the observed element and its latest measured
+ * size.
+ *
+ * A callback ref (rather than a `RefObject` + mount-only effect) is deliberate:
+ * charts early-return a loading skeleton that does NOT carry the ref, so the
+ * observed node appears only AFTER data arrives. React invokes this callback
+ * with the node whenever it mounts/unmounts, so the observer re-attaches to the
+ * real element every time — a mount-only effect would observe `null` during the
+ * skeleton phase and never re-attach, leaving the chart stuck at width 0.
  *
  * Before the first measurement the size is `{ width: 0, height: 0 }`; callers
  * should treat a zero width as "not yet measured" and skip rendering scales
- * (which would otherwise produce NaN / zero-range domains). The observer is
- * disconnected on unmount.
+ * (which would otherwise produce NaN / zero-range domains).
  */
 export function useResizeObserver<T extends Element>(): [
-  RefObject<T | null>,
+  (node: T | null) => void,
   Size,
 ] {
-  const ref = useRef<T>(null)
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
+  const observerRef = useRef<ResizeObserver | null>(null)
 
-  useEffect(() => {
-    const element = ref.current
-    if (element === null) {
+  const ref = useCallback((node: T | null) => {
+    // Detach from any previously observed node first.
+    observerRef.current?.disconnect()
+    observerRef.current = null
+
+    if (node === null) {
       return
     }
 
     // Guard for environments (e.g. jsdom) without ResizeObserver.
     if (typeof ResizeObserver === 'undefined') {
-      const rect = element.getBoundingClientRect()
+      const rect = node.getBoundingClientRect()
       setSize({ width: rect.width, height: rect.height })
       return
     }
@@ -45,9 +55,8 @@ export function useResizeObserver<T extends Element>(): [
         )
       }
     })
-
-    observer.observe(element)
-    return () => observer.disconnect()
+    observer.observe(node)
+    observerRef.current = observer
   }, [])
 
   return [ref, size]
