@@ -143,7 +143,13 @@ export function GeoScatter() {
                     strokeWidth={0.5}
                     style={{ cursor: 'pointer' }}
                     onPointerEnter={() => setHoveredQuakeId(p.id)}
-                    onPointerMove={() => setHoveredQuakeId(p.id)}
+                    onPointerMove={() => {
+                      // No-op when already hovering this circle: avoid a store
+                      // write (and re-render) on every pointer move.
+                      if (useUiStore.getState().hoveredQuakeId !== p.id) {
+                        setHoveredQuakeId(p.id)
+                      }
+                    }}
                     onPointerLeave={() => {
                       // Only clear if this circle is still the hovered one:
                       // moving onto an adjacent circle sets the new id first,
@@ -207,6 +213,7 @@ export function GeoScatter() {
           <Tooltip
             x={MARGIN.left + hoveredPoint.cx}
             y={MARGIN.top + hoveredPoint.cy}
+            containerWidth={width}
             placement={hoveredPoint.cy < 64 ? 'below' : 'above'}
           >
             <div className="font-medium text-content">

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useUiStore } from '../store/uiStore'
+import { useQuakes } from '../hooks/useQuakes'
 import { useQuakeById } from '../hooks/useQuakeById'
 import {
   formatMag,
@@ -22,6 +23,7 @@ import {
 export function DetailCard() {
   const pinnedQuakeId = useUiStore((s) => s.pinnedQuakeId)
   const setPinnedQuakeId = useUiStore((s) => s.setPinnedQuakeId)
+  const feed = useQuakes().data
   const quake = useQuakeById(pinnedQuakeId)
   const closeRef = useRef<HTMLButtonElement>(null)
 
@@ -35,6 +37,31 @@ export function DetailCard() {
     }
   }, [isOpen])
 
+  // Clear a dangling pin only when the quake is truly gone from the FULL feed
+  // (e.g. a background refetch dropped it). Gated on `feed !== undefined` so a
+  // not-yet-loaded feed never clears the pin, and — because resolution is
+  // against the full feed — a brush that merely hides the quake never does either.
+  useEffect(() => {
+    if (pinnedQuakeId !== null && feed !== undefined && quake === null) {
+      setPinnedQuakeId(null)
+    }
+  }, [pinnedQuakeId, feed, quake, setPinnedQuakeId])
+
+  // Document-level Escape so the card closes even when focus has moved off it
+  // (e.g. after tabbing to the USGS link). Registered only while open.
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        setPinnedQuakeId(null)
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [isOpen, setPinnedQuakeId])
+
   if (!isOpen) {
     return null
   }
@@ -46,12 +73,6 @@ export function DetailCard() {
       role="dialog"
       aria-modal="false"
       aria-label={`Earthquake details: ${quake.place}`}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.stopPropagation()
-          close()
-        }
-      }}
       className="fixed bottom-4 right-4 z-50 w-[20rem] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface-elevated p-4 text-sm shadow-lg"
     >
       <div className="flex items-start justify-between gap-3">
