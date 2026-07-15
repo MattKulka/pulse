@@ -213,6 +213,41 @@ body {
 }
 
 /*
+ * ── First-load entrance choreography ──────────────────────────────────────
+ * On initial mount the dashboard ASSEMBLES itself: the header, then the KPI
+ * row, then each panel (map → time-series → histogram) fade + rise into place
+ * with a gentle stagger. Each `.enter` element runs `enter-rise` once; the
+ * per-element `--enter-delay` (set inline in App/Header) sequences them.
+ *
+ * One-shot by construction: a CSS animation on first mount plays exactly once,
+ * and the wrappers carrying `.enter` (the <header> and the App <section>s) are
+ * never remounted when the 60s refetch swaps data — only the panel *contents*
+ * re-render inside them — so the entrance never replays on refetch.
+ *
+ * `backwards` fill holds the collapsed `from` state during a panel's delay so
+ * it stays hidden until its turn (no pre-flash), and leaves NO lingering
+ * transform once the animation ends — important for the sticky header, whose
+ * resting state must be transform-free. Transform/opacity only (Safari-safe).
+ *
+ * Reduced motion: the whole thing lives inside `no-preference`, so under
+ * `prefers-reduced-motion: reduce` there is no `.enter` animation at all and
+ * every element is at its final position/opacity immediately (no layout shift).
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .enter {
+    animation: enter-rise 460ms cubic-bezier(0.22, 1, 0.36, 1)
+      var(--enter-delay, 0ms) backwards;
+  }
+}
+
+@keyframes enter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/*
  * ── Shared panel treatment ────────────────────────────────────────────────
  * KPI tiles and chart panels share `.panel`: a glassy translucent card with
  * backdrop-blur, a soft outer shadow + faint inner top highlight, a larger

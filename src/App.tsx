@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { Header } from './components/layout/Header'
 import { DashboardGrid } from './components/layout/DashboardGrid'
 import { KpiRow } from './components/kpi/KpiRow'
@@ -16,6 +17,12 @@ function App() {
   // and let the StaleIndicator surface the problem instead of blanking it.
   const { isError, data, error, refetch } = useQuakes()
   const showError = isError && data === undefined
+
+  // Per-section entrance delay (see `.enter` in index.css). Typed custom
+  // property so the stagger sequences header → KPI → map → time-series →
+  // histogram. Gated behind reduced-motion in CSS.
+  const enterDelay = (ms: number): CSSProperties =>
+    ({ '--enter-delay': `${ms}ms` }) as CSSProperties
 
   return (
     <div className="relative min-h-screen bg-surface text-content transition-colors">
@@ -37,7 +44,11 @@ function App() {
           {/* KPI row spans the full grid; chart panels fill the rest. Each
               panel is a labelled region (aria-labelledby → its <h2>) so screen-
               reader users can navigate the dashboard by landmark. */}
-          <section aria-label="Summary metrics" className="lg:col-span-12">
+          <section
+            aria-label="Summary metrics"
+            className="enter lg:col-span-12"
+            style={enterDelay(90)}
+          >
             <KpiRow />
           </section>
           {/* Geo-scatter is the visual centerpiece — full width. The section is
@@ -46,7 +57,8 @@ function App() {
               the histogram's bars. */}
           <section
             aria-labelledby="panel-geo-title"
-            className="relative lg:col-span-12"
+            className="enter relative lg:col-span-12"
+            style={enterDelay(180)}
           >
             <GeoScatter />
             {/* Pinned-event overlay: resolved from the full feed so it survives
@@ -55,13 +67,15 @@ function App() {
           </section>
           <section
             aria-labelledby="panel-timeseries-title"
-            className="lg:col-span-6"
+            className="enter lg:col-span-6"
+            style={enterDelay(270)}
           >
             <TimeSeriesChart />
           </section>
           <section
             aria-labelledby="panel-histogram-title"
-            className="lg:col-span-6"
+            className="enter lg:col-span-6"
+            style={enterDelay(360)}
           >
             <MagnitudeHistogram />
           </section>
