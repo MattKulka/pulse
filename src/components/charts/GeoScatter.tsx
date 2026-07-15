@@ -1,12 +1,14 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { geoEquirectangular, geoPath } from 'd3'
 import { useFilteredQuakes } from '../../hooks/useFilteredQuakes'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
 import { useLandFeature } from '../../hooks/useLandFeature'
 import { useUiStore } from '../../store/uiStore'
 import { magRadius, magColorVar } from '../../lib/scales'
+import { prefersReducedMotion } from '../../lib/motion'
 import { formatMag, formatDepth, formatLocalTime } from '../../lib/format'
 import { Tooltip } from './primitives/Tooltip'
+import { Legend } from './Legend'
 import type { Quake } from '../../types/quake'
 
 const MARGIN = { top: 8, right: 8, bottom: 8, left: 8 }
@@ -92,13 +94,57 @@ export function GeoScatter() {
     [points, pinnedQuakeId],
   )
 
+  // Exit animation: when a point disappears (a series is hidden, or the brush
+  // narrows), keep a frozen copy briefly so it can fade + scale out via CSS
+  // rather than vanishing. Re-shown points fade/scale IN through the existing
+  // .geo-point mount animation. Under reduced motion we skip this entirely and
+  // let removed points unmount immediately (no motion). Each exiting circle
+  // removes itself on animationend, so no timers to manage.
+  const prevPointsRef = useRef<Map<string, Point>>(new Map())
+  const [exiting, setExiting] = useState<Point[]>([])
+  useEffect(() => {
+    const prev = prevPointsRef.current
+    const currentIds = new Set(points.map((p) => p.id))
+    const next = new Map<string, Point>()
+    for (const p of points) {
+      next.set(p.id, p)
+    }
+    prevPointsRef.current = next
+
+    if (prefersReducedMotion()) {
+      // Drop any lingering exit copies immediately when motion is disabled.
+      setExiting((cur) => (cur.length === 0 ? cur : []))
+      return
+    }
+
+    const removed: Point[] = []
+    prev.forEach((p, id) => {
+      if (!currentIds.has(id)) {
+        removed.push(p)
+      }
+    })
+    // Keep only exit copies that have NOT re-entered, then append newly removed.
+    setExiting((cur) => {
+      const stillGone = cur.filter((e) => !currentIds.has(e.id))
+      if (removed.length === 0 && stillGone.length === cur.length) {
+        return cur
+      }
+      return [...stillGone, ...removed]
+    })
+  }, [points])
+
   const label = `World map of ${quakes.length} earthquakes, sized and colored by magnitude.`
 
   return (
     <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
-      <h2 className="text-sm font-medium text-content-muted">
-        Global epicenters
-      </h2>
+      {/* Header doubles as the dashboard-wide magnitude color key: the legend
+          toggles hide/show each bucket across every panel. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 className="text-sm font-medium text-content-muted">
+          Global epicenters
+        </h2>
+        <Legend />
+      </div>
       <div
         ref={ref}
         className="relative mt-3"
@@ -162,6 +208,24 @@ export function GeoScatter() {
                   />
                 )
               })}
+              {/* Exiting points: frozen copies of just-removed circles animating
+                  out. Non-interactive; each removes itself on animationend. */}
+              {exiting.map((p) => (
+                <circle
+                  key={`exit-${p.id}`}
+                  className="geo-point-exit"
+                  cx={p.cx}
+                  cy={p.cy}
+                  r={magRadius(p.quake.mag)}
+                  fill={magColorVar(p.quake.mag)}
+                  fillOpacity={0.7}
+                  stroke="var(--surface-elevated)"
+                  strokeWidth={0.5}
+                  onAnimationEnd={() =>
+                    setExiting((cur) => cur.filter((e) => e.id !== p.id))
+                  }
+                />
+              ))}
               {/* Pinned marker: a persistent ring that stays after the pointer
                   leaves (distinct dashed ring). Rendered under the hover ring. */}
               {pinnedPoint !== null ? (
