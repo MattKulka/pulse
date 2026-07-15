@@ -180,7 +180,12 @@ export function GeoScatter() {
   const label = `World map of ${quakes.length} earthquakes, sized and colored by magnitude.`
 
   // Rows for the accessible table fallback: most significant events first, capped.
-  const tableRows = geoTableRows(quakes, GEO_TABLE_LIMIT)
+  // Memoized on `quakes` so hover/pin re-renders (which fire on every pointer
+  // move over the map) don't re-copy + re-sort the whole filtered array.
+  const tableRows = useMemo(
+    () => geoTableRows(quakes, GEO_TABLE_LIMIT),
+    [quakes],
+  )
   const tableCaption =
     quakes.length > tableRows.length
       ? `Top ${tableRows.length} of ${quakes.length} earthquakes, by magnitude.`
