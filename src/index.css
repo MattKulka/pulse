@@ -15,39 +15,67 @@
  */
 
 :root {
-  /* Surfaces & text (light) */
-  --surface: #f8fafc;
+  /* Surfaces & text (light) — clean, bright, minimal ops surface. */
+  --surface: #eef2f8;
   --surface-elevated: #ffffff;
   --text: #0f172a;
   --text-muted: #475569;
-  --border: #e2e8f0;
+  --border: #d5deea;
+  --border-accent: #a5d8e6;
 
-  /* Categorical chart palette (light) */
-  --c-1: #2563eb; /* blue */
-  --c-2: #ea580c; /* orange */
-  --c-3: #059669; /* green */
-  --c-4: #7c3aed; /* violet */
-  --c-5: #db2777; /* magenta */
-  --c-6: #0891b2; /* cyan */
+  /* Reserved UI accent (electric cyan) — deepened for a light surface. */
+  --accent: #0891b2;
+  --accent-2: #0284c7;
+
+  /*
+   * Magnitude "seismic heat" ramp (low → high magnitude). Same hue family as
+   * dark, but deeper/more saturated so each bucket stays legible on a light
+   * surface. Monotonic-ish intensity read; color is never the sole signal.
+   */
+  --c-1: #4f46e5; /* indigo  (M<2) */
+  --c-2: #9333ea; /* purple  (2–3) */
+  --c-3: #c026d3; /* fuchsia (3–4) */
+  --c-4: #e11d5b; /* rose    (4–5) */
+  --c-5: #ea580c; /* orange  (5–6) */
+  --c-6: #d97706; /* amber   (≥6)  */
+
+  /* Reusable glow tokens. */
+  --glow-accent: 0 0 24px rgba(8, 145, 178, 0.28);
+  --glow-accent-text: 0 0 18px rgba(8, 145, 178, 0.25);
 
   color-scheme: light;
 }
 
 .dark {
-  /* Surfaces & text (dark) */
-  --surface: #0b1220;
-  --surface-elevated: #131c2e;
-  --text: #e5e7eb;
-  --text-muted: #94a3b8;
+  /*
+   * Surfaces & text (dark) — near-black space base, subtly bluer glassy
+   * elevated surface (alpha for backdrop-blur to read through).
+   */
+  --surface: #060910;
+  --surface-elevated: rgba(11, 17, 32, 0.78);
+  --text: #e2e8f0;
+  --text-muted: #8b9bb4;
   --border: #1e293b;
+  --border-accent: rgba(34, 211, 238, 0.28);
 
-  /* Categorical chart palette (dark) — lightened for contrast on dark surfaces */
-  --c-1: #60a5fa; /* blue */
-  --c-2: #fb923c; /* orange */
-  --c-3: #34d399; /* green */
-  --c-4: #a78bfa; /* violet */
-  --c-5: #f472b6; /* magenta */
-  --c-6: #22d3ee; /* cyan */
+  /* Reserved UI accent (electric cyan) — focus, LIVE pulse, edges, KPI glow. */
+  --accent: #22d3ee;
+  --accent-2: #38bdf8;
+
+  /*
+   * Magnitude "seismic heat" ramp (plasma-style): indigo → amber, luminance
+   * climbing with magnitude so it reads as intensity and stays CVD-safe.
+   */
+  --c-1: #6366f1; /* indigo  (M<2) */
+  --c-2: #a855f7; /* purple  (2–3) */
+  --c-3: #d946ef; /* fuchsia (3–4) */
+  --c-4: #fb5a7d; /* rose    (4–5) */
+  --c-5: #fb923c; /* orange  (5–6) */
+  --c-6: #fbbf24; /* amber   (≥6, hottest/brightest) */
+
+  /* Reusable glow tokens. */
+  --glow-accent: 0 0 28px rgba(34, 211, 238, 0.35);
+  --glow-accent-text: 0 0 22px rgba(34, 211, 238, 0.45);
 
   color-scheme: dark;
 }
@@ -58,6 +86,7 @@ body {
   background-color: var(--surface);
   color: var(--text);
   font-family:
+    'Space Grotesk Variable',
     system-ui,
     -apple-system,
     'Segoe UI',
@@ -65,6 +94,183 @@ body {
     Helvetica,
     Arial,
     sans-serif;
+}
+
+/*
+ * ── Cinematic backdrop ────────────────────────────────────────────────────
+ * A single fixed, non-interactive layer behind all content (App.tsx renders
+ * <div class="app-backdrop">). Dark mode stacks four GPU-cheap layers:
+ *   1. deep space gradient base (element background),
+ *   2. a faint starfield (layered radial-gradients, ::before),
+ *   3. a fine cyan/slate grid (::after),
+ *   4. a soft edge vignette (element background overlay).
+ * Motion is opt-in: only under `prefers-reduced-motion: no-preference` do the
+ * grid drift and stars twinkle, and even then it's a very long, tiny movement.
+ * Light mode collapses this to a clean, bright minimal wash.
+ */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  /* Light: soft top-lit wash, no starfield. */
+  background:
+    radial-gradient(
+      120% 90% at 50% -10%,
+      rgba(2, 132, 199, 0.08),
+      transparent 60%
+    ),
+    linear-gradient(180deg, #f4f7fb 0%, #eef2f8 100%);
+}
+
+.app-backdrop::before,
+.app-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.dark .app-backdrop {
+  background:
+    /* vignette — radial darkening at the edges for depth */
+    radial-gradient(130% 100% at 50% 0%, transparent 45%, rgba(0, 0, 0, 0.55) 100%),
+    /* subtle top-lighting */
+    radial-gradient(100% 70% at 50% -20%, rgba(34, 211, 238, 0.1), transparent 55%),
+    radial-gradient(90% 60% at 80% 110%, rgba(99, 102, 241, 0.12), transparent 60%),
+    /* deep space base, subtly lighter toward the top */
+    linear-gradient(180deg, #0a0f1c 0%, #060910 55%, #04060c 100%);
+}
+
+/* Starfield: two layered dot fields at different densities/opacities. */
+.dark .app-backdrop::before {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(226, 232, 240, 0.9), transparent),
+    radial-gradient(1px 1px at 75% 15%, rgba(226, 232, 240, 0.7), transparent),
+    radial-gradient(1px 1px at 40% 70%, rgba(148, 197, 230, 0.8), transparent),
+    radial-gradient(1px 1px at 90% 55%, rgba(226, 232, 240, 0.6), transparent),
+    radial-gradient(1.5px 1.5px at 60% 85%, rgba(34, 211, 238, 0.5), transparent),
+    radial-gradient(1px 1px at 12% 88%, rgba(226, 232, 240, 0.55), transparent),
+    radial-gradient(1px 1px at 55% 45%, rgba(226, 232, 240, 0.5), transparent);
+  background-repeat: repeat;
+  background-size: 320px 320px;
+  opacity: 0.55;
+}
+
+/* Grid: fine cyan/slate lines, flat, very low opacity. */
+.dark .app-backdrop::after {
+  background-image:
+    linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(120% 100% at 50% 0%, #000 35%, transparent 85%);
+  -webkit-mask-image: radial-gradient(
+    120% 100% at 50% 0%,
+    #000 35%,
+    transparent 85%
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dark .app-backdrop::before {
+    animation: star-twinkle 9s ease-in-out infinite;
+  }
+  .dark .app-backdrop::after {
+    animation: grid-drift 90s linear infinite;
+  }
+}
+
+@keyframes star-twinkle {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes grid-drift {
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      56px 56px,
+      56px 56px;
+  }
+}
+
+/*
+ * ── Shared panel treatment ────────────────────────────────────────────────
+ * KPI tiles and chart panels share `.panel`: a glassy translucent card with
+ * backdrop-blur, a soft outer shadow + faint inner top highlight, a larger
+ * radius, and a glowing cyan top-edge accent line (::before). `.panel-title`
+ * standardises panel headings: uppercase, letter-spaced, small mono, muted.
+ */
+@layer components {
+  .panel {
+    position: relative;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background-color: var(--surface-elevated);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
+      0 10px 30px -12px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  .dark .panel {
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-color: var(--border);
+    box-shadow:
+      0 1px 0 0 rgba(148, 197, 230, 0.06) inset,
+      0 18px 50px -18px rgba(0, 0, 0, 0.75),
+      0 0 0 1px rgba(56, 189, 248, 0.03);
+  }
+
+  /* Glowing top-edge accent line. */
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--accent),
+      var(--accent-2),
+      transparent
+    );
+    opacity: 0.5;
+  }
+
+  .dark .panel::before {
+    opacity: 0.7;
+    box-shadow: 0 0 10px rgba(34, 211, 238, 0.5);
+  }
+
+  .panel-title {
+    font-family:
+      'JetBrains Mono Variable', ui-monospace, monospace;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  /* Tiny accent tick placed before a panel title via the .panel-tick element. */
+  .panel-tick {
+    display: inline-block;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 9999px;
+    background: var(--accent);
+    box-shadow: var(--glow-accent);
+  }
 }
 
 /*
