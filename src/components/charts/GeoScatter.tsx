@@ -5,13 +5,13 @@ import { useQuakes } from '../../hooks/useQuakes'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
 import { useLandFeature } from '../../hooks/useLandFeature'
 import { useUiStore } from '../../store/uiStore'
-import { magRadius, magColorVar, MAG_BUCKETS } from '../../lib/scales'
+import { magRadius, geoPointRadiusScale, magColorVar, MAG_BUCKETS } from '../../lib/scales'
 import { emptyReason } from '../../lib/emptyState'
 import { prefersReducedMotion } from '../../lib/motion'
 import { formatMag, formatDepth, formatLocalTime } from '../../lib/format'
 import { Tooltip } from './primitives/Tooltip'
 import { Legend } from './Legend'
-import { ChartSkeleton } from '../states/Skeleton'
+import { Skeleton } from '../states/Skeleton'
 import { EmptyState } from '../states/EmptyState'
 import type { Quake } from '../../types/quake'
 
@@ -50,6 +50,13 @@ export function GeoScatter() {
     Math.min(MAX_INNER_HEIGHT, innerWidth / ASPECT),
   )
   const height = innerHeight + MARGIN.top + MARGIN.bottom
+
+  // Point radii scale down with the map so circles stay legible (not overlapping
+  // blobs) on a small mobile map while remaining full-size on desktop. Computed
+  // once here and applied to every circle, hover ring and pin ring so they all
+  // track the same size.
+  const radiusScale = geoPointRadiusScale(innerWidth)
+  const radiusOf = (mag: number): number => magRadius(mag) * radiusScale
 
   const landFeature = land.data
 
@@ -144,10 +151,31 @@ export function GeoScatter() {
 
   const label = `World map of ${quakes.length} earthquakes, sized and colored by magnitude.`
 
-  // First load (quakes not yet fetched): a chart-shaped skeleton. All hooks
-  // above (incl. the exit-animation effect) run unconditionally first.
+  // First load (quakes not yet fetched): a panel-shaped skeleton that reuses the
+  // SAME ref + width/aspect sizing as the real map (plus a header row that
+  // reserves the title + legend height). Sizing the plot block from the measured
+  // width means the panel does not jump taller when data replaces it — the map
+  // grows with width up to MAX_INNER_HEIGHT, so a fixed MIN-height skeleton
+  // would under-reserve on wider screens.
   if (isLoading) {
-    return <ChartSkeleton height={MIN_INNER_HEIGHT + MARGIN.top + MARGIN.bottom} />
+    return (
+      <div
+        role="status"
+        aria-label="Loading chart"
+        data-testid="chart-skeleton"
+        className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-6 w-full max-w-[16rem]" />
+        </div>
+        <div ref={ref} className="mt-3" style={{ minHeight: MIN_INNER_HEIGHT }}>
+          {/* Match the real SVG's rendered height (inner + vertical margins) so
+              the plot area doesn't grow/shrink when the map replaces it. */}
+          <Skeleton className="w-full" style={{ height }} />
+        </div>
+      </div>
+    )
   }
 
   // The map consumes visible ∩ brush, so an empty brush window counts as empty.
@@ -194,6 +222,15 @@ export function GeoScatter() {
             style={{ display: 'block' }}
           >
             <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+              {/* Clip the plotted points/rings to the plot rect so quakes at
+                  extreme latitudes (which project beyond the land-fit bbox) or
+                  near the edges don't bleed outside the panel. Defined in the
+                  same (untransformed) plot space as the clipped group below. */}
+              <defs>
+                <clipPath id="geo-plot-clip">
+                  <rect x={0} y={0} width={innerWidth} height={innerHeight} />
+                </clipPath>
+              </defs>
               {landPath !== null ? (
                 <path
                   d={landPath}
@@ -204,6 +241,7 @@ export function GeoScatter() {
                   strokeWidth={0.5}
                 />
               ) : null}
+              <g clipPath="url(#geo-plot-clip)">
               {points.map((p) => {
                 const isActive = p.id === hoveredQuakeId || p.id === pinnedQuakeId
                 return (
@@ -213,11 +251,12 @@ export function GeoScatter() {
                     data-quake-id={p.id}
                     cx={p.cx}
                     cy={p.cy}
-                    r={magRadius(p.quake.mag)}
+                    r={radiusOf(p.quake.mag)}
                     fill={magColorVar(p.quake.mag)}
-                    fillOpacity={isActive ? 0.95 : 0.7}
+                    fillOpacity={isActive ? 0.92 : 0.62}
                     stroke="var(--surface-elevated)"
-                    strokeWidth={0.5}
+                    strokeOpacity={0.9}
+                    strokeWidth={1}
                     style={{ cursor: 'pointer' }}
                     onPointerEnter={() => setHoveredQuakeId(p.id)}
                     onPointerMove={() => {
@@ -247,11 +286,12 @@ export function GeoScatter() {
                   className="geo-point-exit"
                   cx={p.cx}
                   cy={p.cy}
-                  r={magRadius(p.quake.mag)}
+                  r={radiusOf(p.quake.mag)}
                   fill={magColorVar(p.quake.mag)}
-                  fillOpacity={0.7}
+                  fillOpacity={0.62}
                   stroke="var(--surface-elevated)"
-                  strokeWidth={0.5}
+                  strokeOpacity={0.9}
+                  strokeWidth={1}
                   onAnimationEnd={() =>
                     setExiting((cur) => cur.filter((e) => e.id !== p.id))
                   }
@@ -264,7 +304,7 @@ export function GeoScatter() {
                   data-testid="geo-pinned-ring"
                   cx={pinnedPoint.cx}
                   cy={pinnedPoint.cy}
-                  r={magRadius(pinnedPoint.quake.mag) + 5}
+                  r={radiusOf(pinnedPoint.quake.mag) + 5}
                   fill="none"
                   stroke="var(--text)"
                   strokeWidth={2}
@@ -279,13 +319,14 @@ export function GeoScatter() {
                   data-testid="geo-hover-ring"
                   cx={hoveredPoint.cx}
                   cy={hoveredPoint.cy}
-                  r={magRadius(hoveredPoint.quake.mag) + 3}
+                  r={radiusOf(hoveredPoint.quake.mag) + 3}
                   fill="none"
                   stroke="var(--text)"
                   strokeWidth={2}
                   style={{ pointerEvents: 'none' }}
                 />
               ) : null}
+              </g>
             </g>
             {landFeature === undefined ? (
               <text

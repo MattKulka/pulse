@@ -13,6 +13,27 @@ export function magRadius(mag: number, { min = 2, max = 22 }: { min?: number; ma
   return min + (max - min) * Math.sqrt(clamped);
 }
 
+/** Reference map inner width (px) at which geo points render at full size. */
+const GEO_RADIUS_REFERENCE_WIDTH = 900;
+
+/**
+ * Scale factor for geo-scatter point radii, derived from the map's inner width
+ * so points shrink on small (mobile) maps and stay full-size on desktop. Without
+ * this, the absolute-pixel `magRadius` oversizes circles on a ~360px map, where
+ * they overlap into blobs and cover the continents. Clamped to a sane range so
+ * points never vanish on tiny maps nor balloon past their desktop size.
+ */
+export function geoPointRadiusScale(
+  innerWidth: number,
+  { min = 0.45, max = 1 }: { min?: number; max?: number } = {},
+): number {
+  if (!Number.isFinite(innerWidth) || innerWidth <= 0) {
+    return min;
+  }
+  const t = innerWidth / GEO_RADIUS_REFERENCE_WIDTH;
+  return Math.max(min, Math.min(max, t));
+}
+
 export function niceTimeDomain(quakes: Quake[]): [Date, Date] {
   if (quakes.length === 0) {
     const now = Date.now();
