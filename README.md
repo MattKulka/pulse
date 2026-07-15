@@ -1,5 +1,7 @@
 # Pulse — Live Earthquake Analytics
 
+### ▶ [Live demo](https://pulse-eight-gamma-93.vercel.app) · deployed on Vercel
+
 A fluid, animated analytics dashboard built on the **live USGS earthquake feed**.
 No API key, no backend — one real data source, deeply visualized and cross-filtered.
 The point isn't the numbers; it's the *interaction*: brush a time range and every
