@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { scaleLinear, scaleTime } from 'd3'
 import { useVisibleQuakes } from '../../hooks/useVisibleQuakes'
 import { useQuakes } from '../../hooks/useQuakes'
@@ -33,6 +33,10 @@ const BIN_MS = 30 * 60 * 1000
 const HEIGHT = 260
 const MARGIN = { top: 12, right: 14, bottom: 28, left: 34 }
 const BAR_GAP = 1
+// Total left→right entrance sweep window (ms). The last bar starts at ~this
+// delay and its 500ms grow finishes under ~700ms overall. Only applied on the
+// first mount (see `entered`); refetches grow new bars immediately.
+const DRAW_STAGGER_MS = 200
 
 export function TimeSeriesChart() {
   // The time-series renders the full 24h time context (it is NOT brush-filtered,
@@ -51,6 +55,15 @@ export function TimeSeriesChart() {
   // Local hover x (plot-space px) driving the crosshair; distinct from the
   // cross-panel hovered quake. null when the pointer is off the plot.
   const [hoverX, setHoverX] = useState<number | null>(null)
+  // Unique gradient id so a second chart instance can't collide on a hardcoded id.
+  const barGradientId = useId()
+  // First-mount flag: true after the initial paint so the staggered entrance
+  // runs once. Subsequent renders (data refetch) pass delay 0, so a genuinely
+  // new bar grows immediately instead of re-triggering the whole left→right sweep.
+  const [entered, setEntered] = useState(false)
+  useEffect(() => {
+    setEntered(true)
+  }, [])
 
   const bins = useMemo(() => binByTime(quakes, BIN_MS), [quakes])
   const domain = useMemo(() => niceTimeDomain(quakes), [quakes])
@@ -151,6 +164,25 @@ export function TimeSeriesChart() {
             style={{ display: 'block' }}
           >
             <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+              {/* Vertical bar gradient: luminous cyan at the top fading to a
+                  deeper indigo toward the baseline, so bars read as lit from
+                  above. objectBoundingBox units map the ramp to each bar's own
+                  box; because the rects are drawn full-height and compressed via
+                  scaleY (bottom origin), the visible top edge always shows the
+                  bright cyan stop regardless of bar height. */}
+              <defs>
+                <linearGradient
+                  id={barGradientId}
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.95} />
+                  <stop offset="45%" stopColor="var(--c-1)" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="var(--c-1)" stopOpacity={0.4} />
+                </linearGradient>
+              </defs>
               {/* Left axis + horizontal gridlines for reading counts. */}
               <Axis
                 scale={y}
@@ -166,25 +198,37 @@ export function TimeSeriesChart() {
                   exactly with the axis ticks/gridlines; the inline value is the
                   correct final geometry even if no animation runs. Keyed by
                   bucket so React reconciles enter/update/exit. Bars outside the
-                  active brush selection dim to emphasize the selected window. */}
-              {bins.map((bin) => {
-                const bx = x(bin.t0)
-                const bw = Math.max(0, x(bin.t1) - bx - BAR_GAP)
-                const scaleY = (innerHeight - y(bin.count)) / innerHeight
-                return (
-                  <rect
-                    key={bin.t0.toISOString()}
-                    className="ts-bar"
-                    x={bx}
-                    y={0}
-                    width={bw}
-                    height={innerHeight}
-                    fill="var(--c-1)"
-                    fillOpacity={inBrush(bin.t0, bin.t1) ? 1 : 0.3}
-                    style={{ transform: `scaleY(${scaleY})` }}
-                  />
-                )
-              })}
+                  active brush selection dim to emphasize the selected window.
+                  Wrapped in a glow group (.ts-bars-glow) for the luminous halo,
+                  and each bar carries a first-mount stagger delay so the sweep
+                  reveals left→right. */}
+              <g className="ts-bars-glow">
+                {bins.map((bin, i) => {
+                  const bx = x(bin.t0)
+                  const bw = Math.max(0, x(bin.t1) - bx - BAR_GAP)
+                  const scaleY = (innerHeight - y(bin.count)) / innerHeight
+                  const delay =
+                    entered || bins.length <= 1
+                      ? 0
+                      : (i / (bins.length - 1)) * DRAW_STAGGER_MS
+                  return (
+                    <rect
+                      key={bin.t0.toISOString()}
+                      className="ts-bar"
+                      x={bx}
+                      y={0}
+                      width={bw}
+                      height={innerHeight}
+                      fill={`url(#${barGradientId})`}
+                      fillOpacity={inBrush(bin.t0, bin.t1) ? 1 : 0.3}
+                      style={{
+                        transform: `scaleY(${scaleY})`,
+                        animationDelay: `${delay}ms`,
+                      }}
+                    />
+                  )
+                })}
+              </g>
               {/* Cross-panel reflection: highlight the bin holding the quake
                   hovered elsewhere (on the map). A subtle full-height band plus
                   a marker tick at the bar top — non-color signals, so the

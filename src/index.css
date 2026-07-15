@@ -43,6 +43,11 @@
   --glow-accent: 0 0 24px rgba(8, 145, 178, 0.28);
   --glow-accent-text: 0 0 18px rgba(8, 145, 178, 0.25);
 
+  /* Chart axis + gridlines (ops look): faint slate grid, slightly brighter
+     baseline/ticks. Tuned per-mode so both stay legible. */
+  --chart-grid: rgba(71, 85, 105, 0.16);
+  --chart-axis: rgba(71, 85, 105, 0.5);
+
   color-scheme: light;
 }
 
@@ -76,6 +81,11 @@
   /* Reusable glow tokens. */
   --glow-accent: 0 0 28px rgba(34, 211, 238, 0.35);
   --glow-accent-text: 0 0 22px rgba(34, 211, 238, 0.45);
+
+  /* Chart axis + gridlines (ops look): faint cyan grid on the space surface,
+     a slightly brighter cool baseline/ticks. */
+  --chart-grid: rgba(56, 189, 248, 0.1);
+  --chart-axis: rgba(148, 197, 230, 0.3);
 
   color-scheme: dark;
 }
@@ -292,6 +302,13 @@ body {
  * scaleY renders at the correct height even when motion is disabled or an
  * animation never runs (no "stuck at 0" state). Motion is gated behind
  * `prefers-reduced-motion: no-preference`.
+ *
+ * Staggered draw-in: on first mount the chart sets a per-bar `animation-delay`
+ * (inline, derived from the bar index) so the grow sweeps left→right. `backwards`
+ * fill holds the scaleY(0) `from` state during that delay, so a bar stays
+ * collapsed until its turn instead of flashing at full height first. After the
+ * initial sweep the chart passes delay 0, so a data refetch grows any genuinely
+ * new bar immediately (no distracting re-sweep) while persisting bars just tween.
  */
 .ts-bar {
   transform-box: fill-box;
@@ -300,9 +317,57 @@ body {
 
 @media (prefers-reduced-motion: no-preference) {
   .ts-bar {
-    animation: ts-bar-grow 500ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: ts-bar-grow 500ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
     transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
   }
+}
+
+/*
+ * ── Luminous chart bars ───────────────────────────────────────────────────
+ * A soft group-level glow so the bars read as lit rather than flat. Applied to
+ * the whole <g> (one filter, not one per bar) via CSS `drop-shadow`, which is
+ * GPU-cheap and — unlike an SVG `<filter>` region — is never clipped to a tight
+ * bbox. Light mode stays clean (a faint depth shadow only); dark mode gets the
+ * colored ops glow: cool cyan under the time-series, warm amber under the
+ * plasma histogram, echoing each chart's palette.
+ */
+.ts-bars-glow {
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.14));
+}
+.dark .ts-bars-glow {
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.3));
+}
+
+.hist-bars-glow {
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.14));
+}
+.dark .hist-bars-glow {
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.24));
+}
+
+/*
+ * Ops-style axis tick labels: small mono figures, lightly letter-spaced. Fill
+ * comes from the theme's muted-ink token (set on the element) so they stay
+ * legible in light + dark. Font-size here overrides the SVG presentation
+ * attribute (CSS wins over presentation attrs).
+ */
+.chart-axis-tick {
+  font-family: 'JetBrains Mono Variable', ui-monospace, monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+}
+
+/*
+ * Crosshair guide: a thin cyan (accent) vertical line with a subtle glow, plus a
+ * glassy mono label chip. The glow is a cheap single-element drop-shadow (there
+ * is only ever one crosshair). Static — no animation.
+ */
+.crosshair-guide {
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+.crosshair-label {
+  font-family: 'JetBrains Mono Variable', ui-monospace, monospace;
+  letter-spacing: 0.02em;
 }
 
 /*

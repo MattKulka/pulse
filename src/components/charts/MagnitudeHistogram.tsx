@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { scaleLinear } from 'd3'
 import { useFilteredQuakes } from '../../hooks/useFilteredQuakes'
 import { useQuakes } from '../../hooks/useQuakes'
@@ -6,7 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
 import { magnitudeHistogram, magBinIndexOf, type MagBin } from '../../lib/transforms'
-import { magColorVar, MAG_BUCKETS } from '../../lib/scales'
+import { magBucketKey, MAG_BUCKETS } from '../../lib/scales'
 import { emptyReason } from '../../lib/emptyState'
 import { formatEventCount } from '../../lib/format'
 import { Axis } from './primitives/Axis'
@@ -34,6 +34,8 @@ const STEP = 0.5
 const HEIGHT = 260
 const MARGIN = { top: 12, right: 14, bottom: 28, left: 34 }
 const BAR_GAP = 1
+// Total left→right entrance sweep window (ms); only applied on first mount.
+const DRAW_STAGGER_MS = 200
 
 export function MagnitudeHistogram() {
   const quakes = useFilteredQuakes()
@@ -45,6 +47,13 @@ export function MagnitudeHistogram() {
   const [ref, { width }] = useResizeObserver<HTMLDivElement>()
   // Local per-bar hover (bucket index) for a lightweight count tooltip; null off-bar.
   const [hoverBucket, setHoverBucket] = useState<number | null>(null)
+  // Unique gradient-id prefix so a second chart instance can't collide on ids.
+  const gradientId = useId()
+  // First-mount flag driving the one-time staggered draw-in (see TimeSeriesChart).
+  const [entered, setEntered] = useState(false)
+  useEffect(() => {
+    setEntered(true)
+  }, [])
 
   const bins = useMemo(() => magnitudeHistogram(quakes, STEP), [quakes])
 
@@ -128,6 +137,27 @@ export function MagnitudeHistogram() {
             style={{ display: 'block' }}
           >
             <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+              {/* One vertical gradient per magnitude bucket: the bucket's plasma
+                  hue at full strength up top, fading to a translucent version of
+                  the SAME hue toward the baseline — so bars stay bucket-colored
+                  but read as lit from above. Compressed with the bar via scaleY
+                  (bottom origin), so the bright stop always sits at the visible
+                  top edge. */}
+              <defs>
+                {MAG_BUCKETS.map((b) => (
+                  <linearGradient
+                    key={b.key}
+                    id={`${gradientId}-${b.key}`}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor={b.colorVar} stopOpacity={1} />
+                    <stop offset="100%" stopColor={b.colorVar} stopOpacity={0.55} />
+                  </linearGradient>
+                ))}
+              </defs>
               {/* Left axis + horizontal gridlines for reading counts. */}
               <Axis
                 scale={y}
@@ -139,30 +169,42 @@ export function MagnitudeHistogram() {
                   is drawn at the FULL inner height and sized via inline
                   transform: scaleY(...) so the .ts-bar CSS animates the tween in
                   every browser (WebKit does not transition SVG y/height attrs).
-                  Colored by bucket magnitude via magColorVar; the x-axis already
-                  encodes magnitude, so color is a redundant (not sole) signal. */}
-              {bins.map((bin, i) => {
-                const bx = x(bin.x0)
-                const bw = Math.max(0, x(bin.x1) - bx - BAR_GAP)
-                const scaleY = (innerHeight - y(bin.count)) / innerHeight
-                const mid = (bin.x0 + bin.x1) / 2
-                return (
-                  <rect
-                    key={bin.x0}
-                    className="ts-bar"
-                    x={bx}
-                    y={0}
-                    width={bw}
-                    height={innerHeight}
-                    fill={magColorVar(mid)}
-                    style={{ transform: `scaleY(${scaleY})`, cursor: 'pointer' }}
-                    onPointerEnter={() => setHoverBucket(i)}
-                    onPointerLeave={() =>
-                      setHoverBucket((cur) => (cur === i ? null : cur))
-                    }
-                  />
-                )
-              })}
+                  Filled by a per-bucket vertical gradient (hue = magnitude); the
+                  x-axis already encodes magnitude, so color stays a redundant
+                  (not sole) signal. Wrapped in a glow group for the luminous halo
+                  and given a first-mount stagger delay for the left→right sweep. */}
+              <g className="hist-bars-glow">
+                {bins.map((bin, i) => {
+                  const bx = x(bin.x0)
+                  const bw = Math.max(0, x(bin.x1) - bx - BAR_GAP)
+                  const scaleY = (innerHeight - y(bin.count)) / innerHeight
+                  const mid = (bin.x0 + bin.x1) / 2
+                  const delay =
+                    entered || bins.length <= 1
+                      ? 0
+                      : (i / (bins.length - 1)) * DRAW_STAGGER_MS
+                  return (
+                    <rect
+                      key={bin.x0}
+                      className="ts-bar"
+                      x={bx}
+                      y={0}
+                      width={bw}
+                      height={innerHeight}
+                      fill={`url(#${gradientId}-${magBucketKey(mid)})`}
+                      style={{
+                        transform: `scaleY(${scaleY})`,
+                        animationDelay: `${delay}ms`,
+                        cursor: 'pointer',
+                      }}
+                      onPointerEnter={() => setHoverBucket(i)}
+                      onPointerLeave={() =>
+                        setHoverBucket((cur) => (cur === i ? null : cur))
+                      }
+                    />
+                  )
+                })}
+              </g>
               {/* Cross-panel reflection / local bar hover: emphasize the bucket
                   with a full-height band + a marker tick at the bar top, plus a
                   small count label. Non-color signals, so it reads without hue. */}
