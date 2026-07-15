@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Pulse theme tokens.
+ *
+ * The categorical chart palette (--c-1..--c-6) is tuned separately for light
+ * and dark surfaces rather than mechanically inverted, so every hue keeps a
+ * legible contrast ratio against its background in both modes. The palette is
+ * chosen to stay distinguishable for common color-vision deficiencies, but
+ * color is NEVER the sole signal: earthquake magnitude is additionally encoded
+ * by mark size and opacity, so the visualization stays readable without
+ * relying on hue discrimination alone.
+ */
+
+:root {
+  /* Surfaces & text (light) */
+  --surface: #f8fafc;
+  --surface-elevated: #ffffff;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --border: #e2e8f0;
+
+  /* Categorical chart palette (light) */
+  --c-1: #2563eb; /* blue */
+  --c-2: #ea580c; /* orange */
+  --c-3: #059669; /* green */
+  --c-4: #7c3aed; /* violet */
+  --c-5: #db2777; /* magenta */
+  --c-6: #0891b2; /* cyan */
+
+  color-scheme: light;
+}
+
+.dark {
+  /* Surfaces & text (dark) */
+  --surface: #0b1220;
+  --surface-elevated: #131c2e;
+  --text: #e5e7eb;
+  --text-muted: #94a3b8;
+  --border: #1e293b;
+
+  /* Categorical chart palette (dark) — lightened for contrast on dark surfaces */
+  --c-1: #60a5fa; /* blue */
+  --c-2: #fb923c; /* orange */
+  --c-3: #34d399; /* green */
+  --c-4: #a78bfa; /* violet */
+  --c-5: #f472b6; /* magenta */
+  --c-6: #22d3ee; /* cyan */
+
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--surface);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+}
