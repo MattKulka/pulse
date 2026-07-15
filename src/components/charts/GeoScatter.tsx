@@ -203,7 +203,7 @@ export function GeoScatter() {
         role="status"
         aria-label="Loading chart"
         data-testid="chart-skeleton"
-        className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm"
+        className="panel px-5 py-4"
       >
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <Skeleton className="h-5 w-36" />
@@ -230,14 +230,15 @@ export function GeoScatter() {
   })
 
   return (
-    <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
+    <div className="panel px-5 py-4">
       {/* Header doubles as the dashboard-wide magnitude color key: the legend
           toggles hide/show each bucket across every panel. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2
           id="panel-geo-title"
-          className="text-sm font-medium text-content-muted"
+          className="panel-title flex items-center gap-2"
         >
+          <span aria-hidden="true" className="panel-tick" />
           Global epicenters
         </h2>
         <Legend />

@@ -79,13 +79,11 @@ export function DetailCard() {
       role="dialog"
       aria-modal="false"
       aria-label={`Earthquake details: ${quake.place}`}
-      className="fixed inset-x-3 bottom-3 z-50 w-auto rounded-xl border border-border bg-surface-elevated p-4 text-sm shadow-lg sm:absolute sm:inset-x-auto sm:bottom-4 sm:right-4 sm:z-20 sm:w-[20rem] sm:max-w-[calc(100%-2rem)]"
+      className="fixed inset-x-3 bottom-3 z-50 w-auto rounded-xl border border-border-accent bg-surface-elevated p-4 text-sm shadow-lg backdrop-blur-md sm:absolute sm:inset-x-auto sm:bottom-4 sm:right-4 sm:z-20 sm:w-[20rem] sm:max-w-[calc(100%-2rem)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-wide text-content-muted">
-            Pinned event
-          </div>
+          <div className="panel-title">Pinned event</div>
           <h3 className="mt-0.5 truncate font-medium text-content" title={quake.place}>
             {quake.place}
           </h3>
@@ -95,7 +93,7 @@ export function DetailCard() {
           type="button"
           onClick={close}
           aria-label="Close details and unpin"
-          className="shrink-0 rounded-md border border-border px-2 py-1 text-xs font-medium text-content-muted hover:bg-surface hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-chart-1 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors"
+          className="shrink-0 rounded-md border border-border px-2 py-1 text-xs font-medium text-content-muted hover:bg-surface hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors"
         >
           Close
         </button>
@@ -124,7 +122,7 @@ export function DetailCard() {
         href={usgsEventUrl(quake.id)}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-3 inline-flex items-center gap-1 rounded-md text-xs font-medium text-chart-1 underline underline-offset-2 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-chart-1 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated"
+        className="mt-3 inline-flex items-center gap-1 rounded-md text-xs font-medium text-accent underline underline-offset-2 hover:no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated"
       >
         View on USGS
         <span aria-hidden="true">↗</span>

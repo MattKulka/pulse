@@ -18,7 +18,10 @@ function App() {
   const showError = isError && data === undefined
 
   return (
-    <div className="min-h-screen bg-surface text-content transition-colors">
+    <div className="relative min-h-screen bg-surface text-content transition-colors">
+      {/* Cinematic backdrop: fixed, non-interactive, sits behind all content
+          (see .app-backdrop in index.css). Reduced-motion aware. */}
+      <div aria-hidden="true" className="app-backdrop" />
       <Header />
       {showError ? (
         <main className="mx-auto max-w-6xl px-4 py-16 sm:px-6">

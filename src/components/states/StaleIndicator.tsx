@@ -46,8 +46,15 @@ export function StaleIndicator() {
         ? 'error'
         : 'fresh'
 
+  // Fresh/LIVE reads in the reserved accent cyan with a glow; in-flight fetches
+  // use the secondary accent; a settled failure uses the warm orange ramp stop
+  // (--c-5) which stays a clear "warning" hue in both themes.
   const dotColor =
-    state === 'error' ? 'bg-chart-2' : state === 'updating' || state === 'loading' ? 'bg-chart-1' : 'bg-chart-3'
+    state === 'error'
+      ? 'bg-chart-5 shadow-[0_0_8px_var(--c-5)]'
+      : state === 'updating' || state === 'loading'
+        ? 'bg-accent-2 shadow-[0_0_8px_var(--accent-2)]'
+        : 'bg-accent shadow-[0_0_10px_var(--accent)]'
 
   // Flash re-triggers by remounting the dot on each new dataUpdatedAt; the
   // ambient pulse marks an in-flight refetch. Both are motion-safe only.
@@ -73,7 +80,7 @@ export function StaleIndicator() {
     <span
       data-testid="freshness-indicator"
       data-state={state}
-      className="inline-flex items-center gap-1.5 text-sm text-content-muted"
+      className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider text-content-muted"
     >
       <span
         // Remount on each fresh update so the flash keyframe replays.

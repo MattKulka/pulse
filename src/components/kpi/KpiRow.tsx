@@ -45,7 +45,7 @@ export function KpiRow() {
   // emptiness never masquerades as real zeros.
   if (reason !== null) {
     return (
-      <div className="rounded-xl border border-border bg-surface-elevated shadow-sm">
+      <div className="panel">
         <EmptyState reason={reason} />
       </div>
     )

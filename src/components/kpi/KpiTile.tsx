@@ -25,25 +25,28 @@ export function KpiTile({ label, value, unit, format = defaultFormat }: KpiTileP
     <div
       role="group"
       aria-label={spoken}
-      className="relative overflow-hidden rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm"
+      className="panel px-5 py-4"
     >
-      {/* Decorative accent bar — purely visual, hidden from assistive tech. */}
+      {/* Decorative glowing accent bar — purely visual, hidden from assistive
+          tech. Sits above the panel's top-edge line. */}
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1 bg-chart-1"
+        className="absolute inset-y-0 left-0 z-10 w-[3px] bg-accent shadow-[0_0_12px_var(--accent)]"
       />
       {/* The group's aria-label already conveys "label: value unit" as a single
           settled announcement, so the visual dt/dd are hidden from AT to avoid
           announcing the label + (mid-animation) value a second time. */}
-      <dt aria-hidden="true" className="text-sm font-medium text-content-muted">
+      <dt aria-hidden="true" className="panel-title">
         {label}
       </dt>
-      <dd aria-hidden="true" className="mt-1 flex items-baseline gap-1">
-        <span className="text-3xl font-semibold tabular-nums tracking-tight text-content">
+      <dd aria-hidden="true" className="mt-2 flex items-baseline gap-1">
+        <span className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-content [text-shadow:var(--glow-accent-text)]">
           {display}
         </span>
         {unit ? (
-          <span className="text-base font-medium text-content-muted">{unit}</span>
+          <span className="font-mono text-base font-medium text-content-muted">
+            {unit}
+          </span>
         ) : null}
       </dd>
     </div>

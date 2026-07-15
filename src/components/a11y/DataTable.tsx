@@ -108,7 +108,7 @@ export function DataTableDisclosure({
 }: DataTableDisclosureProps) {
   return (
     <details data-testid={testId} className="group mt-3">
-      <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-content-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-chart-1 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors [&::-webkit-details-marker]:hidden">
+      <summary className="inline-flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-content-muted hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors [&::-webkit-details-marker]:hidden">
         <span
           aria-hidden="true"
           className="inline-block text-[0.7em] motion-safe:transition-transform group-open:rotate-90"

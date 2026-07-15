@@ -117,21 +117,22 @@ export function TimeSeriesChart() {
   })
 
   return (
-    <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
+    <div className="panel px-5 py-4">
       {/* Header row reserves its height whether or not the Clear button is
           present, so the button appearing never shifts the layout. */}
       <div className="flex min-h-[28px] items-center justify-between gap-3">
         <h2
           id="panel-timeseries-title"
-          className="text-sm font-medium text-content-muted"
+          className="panel-title flex items-center gap-2"
         >
+          <span aria-hidden="true" className="panel-tick" />
           Events over time (24h)
         </h2>
         {brushRange !== null ? (
           <button
             type="button"
             onClick={clearBrush}
-            className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-content-muted hover:bg-surface hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-chart-1 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors"
+            className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-content-muted hover:bg-surface hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors"
           >
             Clear selection
           </button>

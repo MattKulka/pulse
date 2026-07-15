@@ -31,7 +31,7 @@ export function Legend() {
             aria-pressed={!hidden}
             aria-label={`Toggle magnitude ${b.label} series (currently ${hidden ? 'hidden' : 'shown'})`}
             onClick={() => toggleSeries(b.key)}
-            className={`inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-content-muted hover:bg-surface hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-chart-1 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors ${
+            className={`inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-1 text-xs font-medium text-content-muted hover:bg-surface hover:text-content focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated motion-safe:transition-colors ${
               hidden ? 'opacity-50' : ''
             }`}
           >
