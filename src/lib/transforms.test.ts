@@ -69,6 +69,26 @@ describe('magnitudeHistogram', () => {
   it('returns [] for empty input', () => {
     expect(magnitudeHistogram([], 0.5)).toEqual([]);
   });
+
+  it('buckets a non-round min without float drift or a stray empty trailing bucket', () => {
+    // min 1.1: float accumulation (x0 += step) drifts and emits a stray empty
+    // trailing bucket; integer indexing must not.
+    const quakes = [
+      q({ id: 'a', mag: 1.1 }),
+      q({ id: 'b', mag: 2.1 }),
+      q({ id: 'c', mag: 3.1 }),
+      q({ id: 'd', mag: 4.1 }),
+    ];
+    const hist = magnitudeHistogram(quakes, 0.5);
+    expect(hist).toHaveLength(6);
+    expect(hist.map((b) => b.count)).toEqual([1, 0, 1, 0, 1, 1]);
+    // last bucket holds the max value, it is not a stray empty bucket
+    expect(hist[hist.length - 1].count).toBe(1);
+    expect(hist[0].x0).toBeCloseTo(1.1, 10);
+    expect(hist[0].x1).toBeCloseTo(1.6, 10);
+    expect(hist[hist.length - 1].x0).toBeCloseTo(3.6, 10);
+    expect(hist[hist.length - 1].x1).toBeCloseTo(4.1, 10);
+  });
 });
 
 describe('filterByRange', () => {

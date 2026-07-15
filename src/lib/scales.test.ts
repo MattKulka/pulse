@@ -30,6 +30,11 @@ describe('magRadius', () => {
       expect(r).toBeLessThanOrEqual(22);
     }
   });
+
+  it('returns min for a non-finite magnitude (NaN guard)', () => {
+    expect(magRadius(NaN)).toBe(2);
+    expect(magRadius(NaN, { min: 4, max: 30 })).toBe(4);
+  });
 });
 
 describe('niceTimeDomain', () => {
@@ -39,6 +44,20 @@ describe('niceTimeDomain', () => {
       q('b', '2024-03-01T01:00:00Z'),
       q('c', '2024-03-01T09:00:00Z'),
     ];
+    const [lo, hi] = niceTimeDomain(quakes);
+    expect(lo.toISOString()).toBe('2024-03-01T01:00:00.000Z');
+    expect(hi.toISOString()).toBe('2024-03-01T09:00:00.000Z');
+  });
+
+  it('rounds endpoints outward to hour boundaries', () => {
+    const quakes = [q('a', '2024-03-01T10:17:00Z'), q('b', '2024-03-01T11:42:00Z')];
+    const [lo, hi] = niceTimeDomain(quakes);
+    expect(lo.toISOString()).toBe('2024-03-01T10:00:00.000Z');
+    expect(hi.toISOString()).toBe('2024-03-01T12:00:00.000Z');
+  });
+
+  it('leaves endpoints already on hour boundaries unchanged', () => {
+    const quakes = [q('a', '2024-03-01T01:00:00Z'), q('b', '2024-03-01T09:00:00Z')];
     const [lo, hi] = niceTimeDomain(quakes);
     expect(lo.toISOString()).toBe('2024-03-01T01:00:00.000Z');
     expect(hi.toISOString()).toBe('2024-03-01T09:00:00.000Z');
@@ -61,5 +80,9 @@ describe('magColorVar', () => {
     expect(magColorVar(5)).toBe('var(--c-5)');
     expect(magColorVar(6)).toBe('var(--c-6)');
     expect(magColorVar(7.5)).toBe('var(--c-6)');
+  });
+
+  it('returns the least-severe color for a non-finite magnitude (NaN guard)', () => {
+    expect(magColorVar(NaN)).toBe('var(--c-1)');
   });
 });

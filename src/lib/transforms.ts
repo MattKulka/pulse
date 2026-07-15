@@ -1,5 +1,15 @@
 import type { Quake } from '../types/quake';
 
+// Drift-proof min/max over a non-empty array: the argument-spread form
+// (`Math.min(...arr)`) throws RangeError on very large arrays.
+function minOf(values: number[]): number {
+  return values.reduce((a, b) => (a < b ? a : b));
+}
+
+function maxOf(values: number[]): number {
+  return values.reduce((a, b) => (a > b ? a : b));
+}
+
 export interface Kpis {
   total: number;
   maxMag: number;
@@ -10,7 +20,7 @@ export function computeKpis(quakes: Quake[]): Kpis {
   if (quakes.length === 0) {
     return { total: 0, maxMag: 0, avgDepth: 0 };
   }
-  const maxMag = Math.max(...quakes.map((q) => q.mag));
+  const maxMag = maxOf(quakes.map((q) => q.mag));
   const avgDepthRaw = quakes.reduce((sum, q) => sum + q.depth, 0) / quakes.length;
   return {
     total: quakes.length,
@@ -30,8 +40,8 @@ export function binByTime(quakes: Quake[], binMs: number): TimeBin[] {
     return [];
   }
   const times = quakes.map((q) => q.time.getTime());
-  const min = Math.min(...times);
-  const max = Math.max(...times);
+  const min = minOf(times);
+  const max = maxOf(times);
   const bins: TimeBin[] = [];
   for (let start = min; start <= max; start += binMs) {
     const end = start + binMs;
@@ -52,13 +62,18 @@ export function magnitudeHistogram(quakes: Quake[], step = 0.5): MagBin[] {
     return [];
   }
   const mags = quakes.map((q) => q.mag);
-  const min = Math.min(...mags);
-  const max = Math.max(...mags);
+  const min = minOf(mags);
+  const max = maxOf(mags);
+  // Integer bucket indices avoid the float drift of accumulating `x0 += step`,
+  // which can emit a stray/mis-labeled trailing bucket for a non-round min.
+  const maxIndex = Math.floor((max - min) / step);
   const bins: MagBin[] = [];
-  for (let x0 = min; x0 <= max; x0 += step) {
-    const x1 = x0 + step;
-    const count = mags.filter((m) => m >= x0 && m < x1).length;
-    bins.push({ x0, x1, count });
+  for (let i = 0; i <= maxIndex; i++) {
+    bins.push({ x0: min + i * step, x1: min + (i + 1) * step, count: 0 });
+  }
+  for (const m of mags) {
+    const index = Math.floor((m - min) / step);
+    bins[index].count++;
   }
   return bins;
 }
