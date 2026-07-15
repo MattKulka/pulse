@@ -68,31 +68,44 @@ body {
 }
 
 /*
- * Time-series bar animation. A single class drives both behaviours:
- *  - Enter: newly-mounted bars run `ts-bar-grow` once, scaling up from their
- *    own baseline (transform-origin: bottom), so bars grow in on first load and
- *    whenever a new time bucket appears.
- *  - Update: persisting bars smoothly transition `y`/`height` when their count
- *    changes (e.g. the 60s refetch or a brush filter), including easing down to
- *    zero — a graceful "exit" for buckets that lose all their events.
- * All motion is gated behind `prefers-reduced-motion: no-preference`.
+ * Time-series bar sizing + animation.
+ *
+ * Each bar <rect> is drawn at the FULL inner plot height and sized purely via
+ * `transform: scaleY(count / yMax)` (set inline in React), scaling up from the
+ * baseline. This is deliberate: CSS transitions on the SVG `y`/`height`
+ * presentation attributes do NOT animate in WebKit/Safari (incl. mobile
+ * Safari), but `transform` animates in every browser. So both phases below
+ * work everywhere:
+ *  - Enter: newly-mounted bars run `ts-bar-grow` once (scaleY 0 -> inline
+ *    target), growing up from the baseline on first load / when a new bucket
+ *    appears.
+ *  - Update: persisting bars transition `transform` when their count (or the
+ *    y-max rescale) changes, easing down to zero for buckets that empty out.
+ *
+ * `transform-box`/`transform-origin` sit OUTSIDE the media query so the inline
+ * scaleY renders at the correct height even when motion is disabled or an
+ * animation never runs (no "stuck at 0" state). Motion is gated behind
+ * `prefers-reduced-motion: no-preference`.
  */
+.ts-bar {
+  transform-box: fill-box;
+  transform-origin: bottom;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .ts-bar {
-    transform-box: fill-box;
-    transform-origin: bottom;
-    animation: ts-bar-grow 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
-    transition:
-      y 400ms cubic-bezier(0.22, 1, 0.36, 1),
-      height 400ms cubic-bezier(0.22, 1, 0.36, 1);
+    animation: ts-bar-grow 500ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
+/*
+ * Only the `from` is declared: the implicit `to` is the element's underlying
+ * value (the inline `transform: scaleY(target)`), so bars grow to their real
+ * height regardless of the current data.
+ */
 @keyframes ts-bar-grow {
   from {
     transform: scaleY(0);
-  }
-  to {
-    transform: scaleY(1);
   }
 }

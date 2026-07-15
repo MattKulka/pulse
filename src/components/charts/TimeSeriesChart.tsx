@@ -65,23 +65,28 @@ export function TimeSeriesChart() {
                 gridLength={innerWidth}
                 tickCount={Math.min(5, Math.max(1, Math.ceil(maxCount)))}
               />
-              {/* Bars. Keyed by bucket so React reconciles enter/update/exit;
-                  CSS (.ts-bar) animates the growth and count changes. */}
+              {/* Bars. Each rect is drawn at the FULL inner height and sized
+                  via transform: scaleY (see .ts-bar in index.css) so the
+                  update tween animates in every browser incl. WebKit/Safari,
+                  where CSS transitions on the y/height SVG attributes do not.
+                  scaleY is derived from the y scale itself so bar tops line up
+                  exactly with the axis ticks/gridlines; the inline value is the
+                  correct final geometry even if no animation runs. Keyed by
+                  bucket so React reconciles enter/update/exit. */}
               {bins.map((bin) => {
                 const bx = x(bin.t0)
                 const bw = Math.max(0, x(bin.t1) - bx - BAR_GAP)
-                const by = y(bin.count)
-                const bh = Math.max(0, innerHeight - by)
+                const scaleY = (innerHeight - y(bin.count)) / innerHeight
                 return (
                   <rect
                     key={bin.t0.toISOString()}
                     className="ts-bar"
                     x={bx}
-                    y={by}
+                    y={0}
                     width={bw}
-                    height={bh}
-                    rx={1}
+                    height={innerHeight}
                     fill="var(--c-1)"
+                    style={{ transform: `scaleY(${scaleY})` }}
                   />
                 )
               })}
