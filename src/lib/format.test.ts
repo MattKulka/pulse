@@ -5,6 +5,7 @@ import {
   formatDepth,
   formatLatLng,
   formatEventCount,
+  formatRelativeTime,
 } from './format';
 
 describe('usgsEventUrl', () => {
@@ -43,5 +44,25 @@ describe('formatEventCount', () => {
     expect(formatEventCount(1)).toBe('1 event');
     expect(formatEventCount(0)).toBe('0 events');
     expect(formatEventCount(4)).toBe('4 events');
+  });
+});
+
+describe('formatRelativeTime', () => {
+  it('clamps sub-5s and negative deltas to "just now"', () => {
+    expect(formatRelativeTime(0)).toBe('just now');
+    expect(formatRelativeTime(4999)).toBe('just now');
+    expect(formatRelativeTime(-5000)).toBe('just now');
+  });
+  it('formats seconds under a minute', () => {
+    expect(formatRelativeTime(5000)).toBe('5s ago');
+    expect(formatRelativeTime(45_000)).toBe('45s ago');
+  });
+  it('formats whole minutes under an hour', () => {
+    expect(formatRelativeTime(60_000)).toBe('1m ago');
+    expect(formatRelativeTime(3 * 60_000 + 999)).toBe('3m ago');
+  });
+  it('formats hours past an hour', () => {
+    expect(formatRelativeTime(60 * 60_000)).toBe('1h ago');
+    expect(formatRelativeTime(150 * 60_000)).toBe('2h ago');
   });
 });

@@ -162,3 +162,36 @@ body {
     transform: scale(0);
   }
 }
+
+/*
+ * Freshness indicator (StaleIndicator) dot motion. `stale-flash` plays once when
+ * a fresh fetch lands (the dot is remounted on each new dataUpdatedAt so the
+ * keyframe replays); `stale-pulse` is an ambient loop while a refetch is in
+ * flight. Both are referenced via Tailwind arbitrary `animate-[...]` utilities,
+ * which are already gated behind `motion-safe:` at the call site, so under
+ * reduced motion the dot stays static.
+ */
+@keyframes stale-flash {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  35% {
+    transform: scale(2);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes stale-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

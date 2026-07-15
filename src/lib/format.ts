@@ -53,3 +53,19 @@ export function formatEventCount(count: number): string {
 export function quakeSummary(q: Quake): string {
   return `${formatMag(q.mag)} · ${q.place}`;
 }
+
+/**
+ * A compact, human relative age for the freshness indicator, e.g. `just now`,
+ * `45s ago`, `3m ago`, `2h ago`. `deltaMs` is (now − lastUpdated); negative or
+ * tiny values clamp to "just now" so a re-render racing a fresh fetch never
+ * shows a nonsensical negative age.
+ */
+export function formatRelativeTime(deltaMs: number): string {
+  const s = Math.floor(Math.max(0, deltaMs) / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  return `${h}h ago`;
+}
