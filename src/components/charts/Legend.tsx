@@ -41,6 +41,9 @@ export function Legend() {
               style={{
                 borderColor: b.colorVar,
                 backgroundColor: hidden ? 'transparent' : b.colorVar,
+                // Small glow so a lit swatch reads against the new epicenter
+                // palette; a hidden bucket stays hollow + un-glowed.
+                boxShadow: hidden ? 'none' : `0 0 6px ${b.colorVar}`,
               }}
             />
             <span className={hidden ? 'line-through' : ''}>{b.label}</span>

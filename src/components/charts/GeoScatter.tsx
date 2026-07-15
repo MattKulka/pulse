@@ -1,5 +1,12 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { geoEquirectangular, geoPath } from 'd3'
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
+import { geoEquirectangular, geoGraticule, geoPath } from 'd3'
 import { useFilteredQuakes } from '../../hooks/useFilteredQuakes'
 import { useQuakes } from '../../hooks/useQuakes'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
@@ -55,6 +62,41 @@ interface Point {
   quake: Quake
 }
 
+// Only "significant" quakes emit sonar ripples — the rest still glow. Everything
+// at or above this magnitude ripples, capped to the strongest RIPPLE_CAP so a
+// busy feed never spawns hundreds of looping animations.
+const RIPPLE_MIN_MAG = 3
+const RIPPLE_CAP = 40
+
+// Deterministic 0..1 offset from a stable id, used to desync ripple loops so the
+// field twinkles instead of strobing in unison. Pure hash → same every render.
+function idOffset(id: string): number {
+  let h = 0
+  for (let i = 0; i < id.length; i += 1) {
+    h = (Math.imul(h, 31) + id.charCodeAt(i)) | 0
+  }
+  return (Math.abs(h) % 1000) / 1000
+}
+
+// Soft-glow halo opacity for a point: brighter halo for stronger quakes so the
+// glow reads as intensity (size + color already encode magnitude too).
+function glowOpacity(mag: number): number {
+  if (!Number.isFinite(mag)) {
+    return 0.18
+  }
+  const t = Math.max(0, Math.min(1, (mag - 1) / 6))
+  return 0.16 + t * 0.34
+}
+
+// Per-ring CSS custom-property style. Cast keeps the custom props type-safe
+// without `any`; React passes `--*` values straight through to the DOM.
+interface RippleVars extends CSSProperties {
+  '--ripple-scale': number
+  '--ripple-opacity': number
+  '--ripple-dur': string
+  '--ripple-delay': string
+}
+
 export function GeoScatter() {
   const quakes = useFilteredQuakes()
   const { isLoading, data } = useQuakes()
@@ -69,8 +111,10 @@ export function GeoScatter() {
   const setPinnedQuakeId = useUiStore((s) => s.setPinnedQuakeId)
 
   // Unique per-instance clip id so a second mount can't collide on a hardcoded
-  // id (which would make both instances share/steal one <clipPath>).
+  // id (which would make both instances share/steal one <clipPath>). Same for
+  // the shared glow filter referenced by the halo group.
   const clipId = useId()
+  const glowId = useId()
 
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
   const innerHeight = Math.max(
@@ -106,6 +150,15 @@ export function GeoScatter() {
     return geoPath(projection)(landFeature)
   }, [projection, landFeature])
 
+  // Faint lat/long ops-grid behind the points. d3 does the geometry (math only);
+  // React renders the single <path>. Recomputed only when the projection changes.
+  const graticulePath = useMemo(() => {
+    if (projection === null) {
+      return null
+    }
+    return geoPath(projection)(geoGraticule().step([20, 20])())
+  }, [projection])
+
   // Project each quake once; drop points that fall off the projection (null)
   // or produce non-finite pixels. Sort ascending by magnitude so the largest
   // (most significant) circles are painted last and read on top.
@@ -128,6 +181,16 @@ export function GeoScatter() {
       .filter((p): p is Point => p !== null)
       .sort((a, b) => a.quake.mag - b.quake.mag)
   }, [projection, quakes])
+
+  // Significant quakes that emit sonar ripples: mag ≥ RIPPLE_MIN_MAG, capped to
+  // the strongest RIPPLE_CAP. `points` is sorted ascending by magnitude, so the
+  // strongest significant events are the tail — slice from the end.
+  const ripplePoints = useMemo<Point[]>(() => {
+    const significant = points.filter((p) => p.quake.mag >= RIPPLE_MIN_MAG)
+    return significant.length > RIPPLE_CAP
+      ? significant.slice(significant.length - RIPPLE_CAP)
+      : significant
+  }, [points])
 
   const hoveredPoint = useMemo(
     () => points.find((p) => p.id === hoveredQuakeId) ?? null,
@@ -178,6 +241,10 @@ export function GeoScatter() {
   }, [points])
 
   const label = `World map of ${quakes.length} earthquakes, sized and colored by magnitude.`
+
+  // Ripples are motion; under reduced-motion we render none (the glow + points
+  // still fully convey magnitude). Read at render like the exit-animation effect.
+  const reduceMotion = prefersReducedMotion()
 
   // Rows for the accessible table fallback: most significant events first, capped.
   // Memoized on `quakes` so hover/pin re-renders (which fire on every pointer
@@ -274,18 +341,106 @@ export function GeoScatter() {
                 <clipPath id={clipId}>
                   <rect x={0} y={0} width={innerWidth} height={innerHeight} />
                 </clipPath>
+                {/* One shared blur filter for ALL glow halos (cheaper than a
+                    per-circle filter). Widened region so the blur isn't clipped
+                    to each halo's tight bbox. Halos keep their own fill, so this
+                    stays color-agnostic. */}
+                <filter
+                  id={glowId}
+                  x="-50%"
+                  y="-50%"
+                  width="200%"
+                  height="200%"
+                  colorInterpolationFilters="sRGB"
+                >
+                  <feGaussianBlur stdDeviation={2.4} />
+                </filter>
               </defs>
-              {landPath !== null ? (
+              <g clipPath={`url(#${clipId})`}>
+              {/* Faint lat/long ops-grid behind everything. Decorative. */}
+              {graticulePath !== null ? (
                 <path
-                  d={landPath}
-                  fill="var(--border)"
-                  fillOpacity={0.55}
-                  stroke="var(--text-muted)"
-                  strokeOpacity={0.25}
+                  aria-hidden="true"
+                  d={graticulePath}
+                  fill="none"
+                  stroke="var(--accent)"
+                  strokeOpacity={0.1}
                   strokeWidth={0.5}
+                  style={{ pointerEvents: 'none' }}
                 />
               ) : null}
-              <g clipPath={`url(#${clipId})`}>
+              {/* Land: very dark fill, thin cyan-tinted glowing coastline so
+                  continents read as outlines on the grid. */}
+              {landPath !== null ? (
+                <path
+                  className="geo-land"
+                  aria-hidden="true"
+                  d={landPath}
+                  fill="var(--border)"
+                  fillOpacity={0.4}
+                  stroke="var(--accent)"
+                  strokeOpacity={0.35}
+                  strokeWidth={0.6}
+                  style={{ pointerEvents: 'none' }}
+                />
+              ) : null}
+              {/* Soft magnitude-colored glow halos, one per point, all sharing a
+                  single blur filter. Rendered behind the crisp cores. */}
+              <g filter={`url(#${glowId})`} aria-hidden="true">
+                {points.map((p) => (
+                  <circle
+                    key={`glow-${p.id}`}
+                    cx={p.cx}
+                    cy={p.cy}
+                    r={radiusOf(p.quake.mag) * 1.9}
+                    fill={magColorVar(p.quake.mag)}
+                    fillOpacity={glowOpacity(p.quake.mag)}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                ))}
+              </g>
+              {/* ★ Sonar ripples: significant quakes emit expanding rings that
+                  radiate + fade on a loop, staggered so the field twinkles.
+                  Animated via CSS transform:scale (Safari won't animate `r`);
+                  pointer-events:none so they never block the real point. Skipped
+                  entirely under reduced motion. */}
+              {!reduceMotion
+                ? ripplePoints.map((p) => {
+                    const baseR = radiusOf(p.quake.mag)
+                    const t = Math.max(0, Math.min(1, (p.quake.mag - 3) / 4))
+                    const maxScale = 3 + t * 3
+                    const dur = 2400 + t * 1400
+                    const opacity = 0.35 + t * 0.35
+                    const color = magColorVar(p.quake.mag)
+                    const off = idOffset(p.id)
+                    // 2 concentric rings, the 2nd interleaved by half a cycle,
+                    // both desynced from other points via the id-derived offset.
+                    return [0, 0.5].map((phase) => {
+                      const delay = -((off + phase) * dur)
+                      const style: RippleVars = {
+                        stroke: color,
+                        '--ripple-scale': maxScale,
+                        '--ripple-opacity': opacity,
+                        '--ripple-dur': `${dur}ms`,
+                        '--ripple-delay': `${delay}ms`,
+                      }
+                      return (
+                        <circle
+                          key={`ripple-${p.id}-${phase}`}
+                          className="geo-ripple"
+                          aria-hidden="true"
+                          cx={p.cx}
+                          cy={p.cy}
+                          r={baseR}
+                          fill="none"
+                          strokeWidth={1.5}
+                          vectorEffect="non-scaling-stroke"
+                          style={style}
+                        />
+                      )
+                    })
+                  })
+                : null}
               {points.map((p) => {
                 const isActive = p.id === hoveredQuakeId || p.id === pinnedQuakeId
                 return (
@@ -345,27 +500,29 @@ export function GeoScatter() {
                   leaves (distinct dashed ring). Rendered under the hover ring. */}
               {pinnedPoint !== null ? (
                 <circle
+                  className="geo-pinned-ring"
                   data-testid="geo-pinned-ring"
                   cx={pinnedPoint.cx}
                   cy={pinnedPoint.cy}
                   r={radiusOf(pinnedPoint.quake.mag) + 5}
                   fill="none"
-                  stroke="var(--text)"
+                  stroke="var(--accent)"
                   strokeWidth={2}
                   strokeDasharray="3 2"
                   style={{ pointerEvents: 'none' }}
                 />
               ) : null}
-              {/* Hover ring: a solid emphasis ring around the hovered circle
+              {/* Hover ring: a bright cyan glow ring around the hovered circle
                   (ring + enlarged + raised opacity — non-color signals). */}
               {hoveredPoint !== null ? (
                 <circle
+                  className="geo-hover-ring"
                   data-testid="geo-hover-ring"
                   cx={hoveredPoint.cx}
                   cy={hoveredPoint.cy}
                   r={radiusOf(hoveredPoint.quake.mag) + 3}
                   fill="none"
-                  stroke="var(--text)"
+                  stroke="var(--accent)"
                   strokeWidth={2}
                   style={{ pointerEvents: 'none' }}
                 />

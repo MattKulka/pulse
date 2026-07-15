@@ -370,6 +370,73 @@ body {
 }
 
 /*
+ * Coastline glow. A thin cyan-tinted stroke already outlines the land; in dark
+ * mode a small drop-shadow lifts it off the grid so continents read as glowing
+ * ops-display outlines. Kept subtle + static (no per-frame cost). Light mode
+ * leaves the stroke un-glowed for a clean minimal look.
+ */
+.dark .geo-land {
+  filter: drop-shadow(0 0 1.5px rgba(34, 211, 238, 0.35));
+}
+
+/*
+ * Hover / pin emphasis rings. Both get a cyan glow so they match the seismic
+ * ops palette; the glow is a cheap single-element drop-shadow (these rings are
+ * one-at-a-time, unlike the hundreds of points). Static — no animation.
+ */
+.geo-hover-ring {
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+.geo-pinned-ring {
+  filter: drop-shadow(0 0 3px var(--accent));
+}
+
+/*
+ * ★ Sonar ripple-pulses — the signature. Each significant quake emits expanding
+ * rings that radiate outward and fade, looping forever. Animated with
+ * `transform: scale()` (NOT the SVG `r` attribute — WebKit/Safari won't animate
+ * `r`) plus opacity, so it stays GPU-cheap and Safari-safe. `transform-box:
+ * fill-box` + `transform-origin: center` scale the ring about the quake's
+ * epicenter. `vector-effect: non-scaling-stroke` (set on the element) keeps the
+ * wave a crisp thin line as it grows. Per-ring CSS vars (--ripple-scale/-opacity
+ * /-dur/-delay) are set inline in React so bigger quakes ripple larger, slower
+ * and more opaque, and each loop is desynced via a negative --ripple-delay.
+ *
+ * Reduced motion: the resting state is opacity:0 and the animation lives ONLY
+ * inside the no-preference media query, so under `prefers-reduced-motion` the
+ * rings are invisible + still (the component also skips rendering them). All
+ * ripple rings are pointer-events:none so they never intercept hover/click.
+ */
+.geo-ripple {
+  transform-box: fill-box;
+  transform-origin: center;
+  pointer-events: none;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .geo-ripple {
+    animation: geo-ripple var(--ripple-dur, 2600ms) linear
+      var(--ripple-delay, 0ms) infinite;
+  }
+}
+
+@keyframes geo-ripple {
+  from {
+    transform: scale(1);
+    opacity: var(--ripple-opacity, 0.5);
+  }
+  60% {
+    opacity: calc(var(--ripple-opacity, 0.5) * 0.4);
+  }
+  to {
+    transform: scale(var(--ripple-scale, 3.5));
+    opacity: 0;
+  }
+}
+
+/*
  * Freshness indicator (StaleIndicator) dot motion. `stale-flash` plays once when
  * a fresh fetch lands (the dot is remounted on each new dataUpdatedAt so the
  * keyframe replays); `stale-pulse` is an ambient loop while a refetch is in
