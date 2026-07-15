@@ -19,6 +19,7 @@ import { prefersReducedMotion } from '../../lib/motion'
 import { formatMag, formatDepth, formatLocalTime, formatDateTime } from '../../lib/format'
 import { Tooltip } from './primitives/Tooltip'
 import { Legend } from './Legend'
+import { EpicenterList } from '../EpicenterList'
 import { Skeleton } from '../states/Skeleton'
 import { EmptyState } from '../states/EmptyState'
 import {
@@ -29,6 +30,21 @@ import {
 import type { Quake } from '../../types/quake'
 
 const ALL_BUCKET_KEYS = MAG_BUCKETS.map((b) => b.key)
+
+type ViewMode = 'map' | 'list'
+
+interface ViewSegment {
+  mode: ViewMode
+  label: string
+  testId: string
+}
+
+// Map is the DEFAULT view (the `.geo-point` e2e checks depend on it) and is
+// listed first in the segmented control.
+const VIEW_SEGMENTS: readonly ViewSegment[] = [
+  { mode: 'map', label: 'Map', testId: 'view-toggle-map' },
+  { mode: 'list', label: 'List', testId: 'view-toggle-list' },
+]
 
 // Cap the accessible event table so it stays scannable on a large feed; the
 // caption notes the true total when rows are trimmed.
@@ -109,6 +125,11 @@ export function GeoScatter() {
   const setHoveredQuakeId = useUiStore((s) => s.setHoveredQuakeId)
   const pinnedQuakeId = useUiStore((s) => s.pinnedQuakeId)
   const setPinnedQuakeId = useUiStore((s) => s.setPinnedQuakeId)
+
+  // Panel-local view mode: the segmented control switches the panel body between
+  // the map SVG and the interactive list. Default = map so the geo e2e checks
+  // (which assert `.geo-point` count > 0) keep passing.
+  const [viewMode, setViewMode] = useState<ViewMode>('map')
 
   // Unique per-instance clip id so a second mount can't collide on a hardcoded
   // id (which would make both instances share/steal one <clipPath>). Same for
@@ -308,14 +329,50 @@ export function GeoScatter() {
           <span aria-hidden="true" className="panel-tick" />
           Global epicenters
         </h2>
-        <Legend />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {/* Map / List segmented control. Active segment glows in the accent
+              cyan; both are real buttons (aria-pressed, keyboard-focusable). */}
+          <div
+            role="group"
+            aria-label="Epicenter view"
+            className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-surface p-0.5 font-mono text-[0.6875rem] uppercase tracking-wider"
+          >
+            {VIEW_SEGMENTS.map((seg) => {
+              const active = viewMode === seg.mode
+              return (
+                <button
+                  key={seg.mode}
+                  type="button"
+                  data-testid={seg.testId}
+                  aria-pressed={active}
+                  onClick={() => setViewMode(seg.mode)}
+                  className={`rounded-md px-2.5 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated ${
+                    active
+                      ? 'bg-surface-elevated text-accent shadow-[0_0_10px_-2px_var(--accent)]'
+                      : 'text-content-muted hover:text-content'
+                  }`}
+                >
+                  {seg.label}
+                </button>
+              )
+            })}
+          </div>
+          {/* Legend stays visible in both modes — it's the shared magnitude
+              color key + series toggle. */}
+          <Legend />
+        </div>
       </div>
       <div
         ref={ref}
         className="relative mt-3"
         style={{ minHeight: MIN_INNER_HEIGHT }}
       >
-        {reason !== null ? (
+        {viewMode === 'list' ? (
+          // List view: self-contained (reads the same filtered source and its
+          // own empty state). Height matched to the map so the panel body
+          // doesn't jump when switching modes.
+          <EpicenterList maxHeight={height} />
+        ) : reason !== null ? (
           <EmptyState
             reason={reason}
             className="min-h-[200px] justify-center"
@@ -545,8 +602,9 @@ export function GeoScatter() {
         ) : null}
         {/* Shared tooltip: a single card for the hovered quake, anchored near
             its projected point. Flips below the point when it is near the top
-            edge so it stays on-screen. */}
-        {hoveredPoint !== null ? (
+            edge so it stays on-screen. Map mode only — in list mode a hovered
+            row highlights inline, and the map coords aren't on screen. */}
+        {viewMode === 'map' && hoveredPoint !== null ? (
           <Tooltip
             x={MARGIN.left + hoveredPoint.cx}
             y={MARGIN.top + hoveredPoint.cy}
