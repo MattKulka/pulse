@@ -34,12 +34,16 @@ export function StaleIndicator() {
   const hasUpdate = dataUpdatedAt > 0
   const relative = hasUpdate ? formatRelativeTime(now - dataUpdatedAt) : null
 
+  // Order matters: an in-flight fetch is reported as `updating` BEFORE `error`,
+  // so a retry that follows a prior failure (isError && isFetching) reads
+  // "Updating…" rather than "Update failed". The error state is reserved for the
+  // settled-failed case (a failure with no fetch currently in flight).
   const state: FreshnessState = !hasUpdate && isFetching
     ? 'loading'
-    : isError
-      ? 'error'
-      : isFetching
-        ? 'updating'
+    : isFetching
+      ? 'updating'
+      : isError
+        ? 'error'
         : 'fresh'
 
   const dotColor =
