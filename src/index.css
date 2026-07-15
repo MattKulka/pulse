@@ -109,3 +109,29 @@ body {
     transform: scaleY(0);
   }
 }
+
+/*
+ * Geo-scatter quake markers. Each <circle> fades + scales in from its own
+ * center on mount. `transform-box: fill-box` makes `transform-origin: center`
+ * resolve to the circle's bounding box (its center) rather than the SVG root,
+ * so the scale animates in place. `backwards` fill applies the `from` state
+ * during any animation delay. Motion is gated behind reduced-motion, and the
+ * marker's resting appearance (full opacity, scale 1) needs no inline style.
+ */
+.geo-point {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .geo-point {
+    animation: geo-point-in 400ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+}
+
+@keyframes geo-point-in {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
