@@ -63,11 +63,12 @@ export function Tooltip({
     <div
       ref={cardRef}
       role="tooltip"
-      className="pointer-events-none absolute z-20 w-max max-w-[16rem] break-words rounded-lg border border-border bg-surface-elevated px-3 py-2 text-xs leading-snug text-content shadow-md"
+      className="pointer-events-none absolute z-20 w-max max-w-[16rem] break-words rounded-lg border border-border-accent bg-surface-elevated px-3 py-2 text-xs leading-snug text-content shadow-lg backdrop-blur-md"
       style={{
         left: clampedX,
         top: y,
         transform: `translate(-50%, ${translateY})`,
+        boxShadow: 'var(--glow-accent)',
       }}
     >
       {children}

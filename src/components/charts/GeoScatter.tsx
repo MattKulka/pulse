@@ -556,7 +556,7 @@ export function GeoScatter() {
             <div className="font-medium text-content">
               {hoveredPoint.quake.place}
             </div>
-            <div className="mt-0.5 text-content-muted">
+            <div className="mt-0.5 font-mono tabular-nums text-content-muted">
               {formatMag(hoveredPoint.quake.mag)} ·{' '}
               {formatDepth(hoveredPoint.quake.depth)} ·{' '}
               {formatLocalTime(hoveredPoint.quake.time)}

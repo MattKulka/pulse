@@ -9,9 +9,9 @@ export interface CrosshairProps {
 }
 
 const FONT_SIZE = 11
-const PAD_X = 6
+const PAD_X = 7
 const PAD_Y = 4
-const CHAR_W = 6.1 // rough advance width at FONT_SIZE for the label background
+const CHAR_W = 6.7 // rough advance width at FONT_SIZE (mono) for the label bg
 const OFFSET = 8 // gap between the guide line and the label box
 
 /**
@@ -32,28 +32,31 @@ export function Crosshair({ x, innerWidth, innerHeight, label }: CrosshairProps)
 
   return (
     <g style={{ pointerEvents: 'none' }} data-testid="crosshair">
+      {/* Glowing thin cyan (accent) vertical guide. */}
       <line
+        className="crosshair-guide"
         x1={x}
         x2={x}
         y1={0}
         y2={innerHeight}
-        stroke="var(--text-muted)"
-        strokeOpacity={0.55}
+        stroke="var(--accent)"
+        strokeOpacity={0.85}
         strokeWidth={1}
-        strokeDasharray="3 3"
       />
+      {/* Glassy mono label chip. */}
       <g>
         <rect
           x={boxX}
           y={boxY}
           width={boxW}
           height={boxH}
-          rx={4}
+          rx={5}
           fill="var(--surface-elevated)"
-          stroke="var(--border)"
+          stroke="var(--border-accent)"
           strokeWidth={1}
         />
         <text
+          className="crosshair-label"
           x={textX}
           y={boxY + boxH / 2}
           dominantBaseline="central"

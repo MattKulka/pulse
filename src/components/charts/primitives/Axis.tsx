@@ -67,16 +67,15 @@ export function Axis({
     <g
       transform={transform}
       fill="none"
-      fontSize={11}
       style={{ userSelect: 'none' }}
     >
-      {/* Domain line. */}
+      {/* Domain/baseline line — a slightly brighter thin ops line. */}
       <line
         x1={isBottom ? rangeStart : 0}
         x2={isBottom ? rangeEnd : 0}
         y1={isBottom ? 0 : rangeStart}
         y2={isBottom ? 0 : rangeEnd}
-        stroke="var(--border)"
+        stroke="var(--chart-axis)"
       />
       {ticks.map((tick) => (
         <g
@@ -87,7 +86,7 @@ export function Axis({
               : `translate(0,${tick.pos})`
           }
         >
-          {/* Faint gridline across the plot — purely decorative. */}
+          {/* Very faint gridline across the plot — purely decorative. */}
           {gridLength !== undefined ? (
             <line
               aria-hidden="true"
@@ -95,20 +94,20 @@ export function Axis({
               x2={isBottom ? 0 : gridLength}
               y1={0}
               y2={isBottom ? -gridLength : 0}
-              stroke="var(--border)"
-              strokeOpacity={0.5}
+              stroke="var(--chart-grid)"
             />
           ) : null}
           {/* Tick mark. */}
           <line
             x1={0}
-            x2={isBottom ? 0 : -6}
+            x2={isBottom ? 0 : -5}
             y1={0}
-            y2={isBottom ? 6 : 0}
-            stroke="var(--border)"
+            y2={isBottom ? 5 : 0}
+            stroke="var(--chart-axis)"
           />
-          {/* Tick label. */}
+          {/* Tick label — small, letter-spaced mono in muted ink. */}
           <text
+            className="chart-axis-tick"
             x={isBottom ? 0 : -9}
             y={isBottom ? 9 : 0}
             fill="var(--text-muted)"
