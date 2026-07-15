@@ -13,13 +13,26 @@ export interface BrushProps {
   brushRange: [Date, Date] | null
   /** Fired continuously while dragging (and on click-to-clear with null). */
   onBrush: (range: [Date, Date] | null) => void
-  /** Fired once when the drag gesture ends, with the final range (or null). */
-  onBrushEnd?: (range: [Date, Date] | null) => void
 }
 
 interface DragState {
   startX: number
   curX: number
+}
+
+/**
+ * Per-gesture metadata kept in a ref (mutated without re-rendering):
+ * - `previousRange`: the committed range at pointer-down, restored verbatim if
+ *   the gesture is cancelled (OS interruption, context menu) so an interrupted
+ *   drag never leaves a mid-drag range in the store.
+ * - `exceeded`: latches true once the drag passes MIN_DRAG_PX and stays true for
+ *   the rest of the gesture, so dragging back toward the start keeps committing
+ *   the drawn band (the other panels track the visible selection continuously)
+ *   and the release still commits a range rather than click-clearing.
+ */
+interface DragMeta {
+  previousRange: [Date, Date] | null
+  exceeded: boolean
 }
 
 /**
@@ -35,9 +48,9 @@ export function Brush({
   innerHeight,
   brushRange,
   onBrush,
-  onBrushEnd,
 }: BrushProps) {
   const overlayRef = useRef<SVGRectElement>(null)
+  const metaRef = useRef<DragMeta | null>(null)
   const [drag, setDrag] = useState<DragState | null>(null)
 
   // Pointer clientX → plot-space pixel x. The overlay rect spans plot x 0..W,
@@ -55,6 +68,8 @@ export function Brush({
     if (e.button !== 0) return
     const px = localX(e.clientX)
     e.currentTarget.setPointerCapture(e.pointerId)
+    // Snapshot the pre-drag range so an interrupted gesture can revert to it.
+    metaRef.current = { previousRange: brushRange, exceeded: false }
     setDrag({ startX: px, curX: px })
     e.preventDefault()
   }
@@ -63,10 +78,17 @@ export function Brush({
     if (drag === null) return
     const px = localX(e.clientX)
     setDrag({ startX: drag.startX, curX: px })
-    // Live cross-filter: only commit once past the min-drag threshold so a
-    // stationary press doesn't wipe an existing selection mid-gesture.
-    if (Math.abs(px - drag.startX) >= MIN_DRAG_PX) {
-      onBrush(pixelRangeToTimeRange(xScale, drag.startX, px))
+    const meta = metaRef.current
+    if (meta !== null) {
+      // Latch once past the threshold: a stationary press never wipes an
+      // existing selection, but after a real drag begins we keep committing the
+      // live band even if the pointer wanders back within MIN_DRAG_PX of start.
+      if (Math.abs(px - drag.startX) >= MIN_DRAG_PX) {
+        meta.exceeded = true
+      }
+      if (meta.exceeded) {
+        onBrush(pixelRangeToTimeRange(xScale, drag.startX, px))
+      }
     }
     e.preventDefault()
   }
@@ -77,17 +99,23 @@ export function Brush({
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
     const px = localX(e.clientX)
-    const isClick = Math.abs(px - drag.startX) < MIN_DRAG_PX
-    const next = isClick
-      ? null
-      : pixelRangeToTimeRange(xScale, drag.startX, px)
+    const exceeded = metaRef.current?.exceeded ?? false
+    // A gesture that never passed the threshold is a click-to-clear.
+    const next = exceeded ? pixelRangeToTimeRange(xScale, drag.startX, px) : null
+    metaRef.current = null
     setDrag(null)
     onBrush(next)
-    onBrushEnd?.(next)
   }
 
   function cancelDrag(): void {
+    // Revert to the pre-drag range: a cancelled gesture must not leave the last
+    // mid-drag range committed in the store.
+    const meta = metaRef.current
+    metaRef.current = null
     setDrag(null)
+    if (meta !== null) {
+      onBrush(meta.previousRange)
+    }
   }
 
   // Resolve the pixel span to render: the live drag while active, otherwise the
