@@ -19,6 +19,12 @@ import {
  *
  * Non-modal (aria-modal=false) so the dashboard behind it stays usable; the
  * close button is focused on open, has a visible focus ring, and Escape closes.
+ *
+ * Placement: on desktop it is absolutely anchored to the bottom-right of the map
+ * panel (its `relative` section in App) — empty ocean space — so it never covers
+ * the magnitude histogram's bars. On small screens it becomes a fixed,
+ * full-width card pinned to the bottom edge so it stays readable and on-screen.
+ * Both positionings are out of flow, so opening/closing causes no layout shift.
  */
 export function DetailCard() {
   const pinnedQuakeId = useUiStore((s) => s.pinnedQuakeId)
@@ -73,7 +79,7 @@ export function DetailCard() {
       role="dialog"
       aria-modal="false"
       aria-label={`Earthquake details: ${quake.place}`}
-      className="fixed bottom-4 right-4 z-50 w-[20rem] max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface-elevated p-4 text-sm shadow-lg"
+      className="fixed inset-x-3 bottom-3 z-50 w-auto rounded-xl border border-border bg-surface-elevated p-4 text-sm shadow-lg sm:absolute sm:inset-x-auto sm:bottom-4 sm:right-4 sm:z-20 sm:w-[20rem] sm:max-w-[calc(100%-2rem)]"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

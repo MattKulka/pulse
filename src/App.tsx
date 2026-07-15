@@ -35,9 +35,15 @@ function App() {
           <section className="lg:col-span-12">
             <KpiRow />
           </section>
-          {/* Geo-scatter is the visual centerpiece — full width. */}
-          <section className="lg:col-span-12">
+          {/* Geo-scatter is the visual centerpiece — full width. The section is
+              the positioning context for the pinned DetailCard, which anchors to
+              the map's bottom-right (empty ocean) on desktop so it never covers
+              the histogram's bars. */}
+          <section className="relative lg:col-span-12">
             <GeoScatter />
+            {/* Pinned-event overlay: resolved from the full feed so it survives
+                brush changes. Renders nothing when no pin. */}
+            <DetailCard />
           </section>
           <section className="lg:col-span-6">
             <TimeSeriesChart />
@@ -47,9 +53,6 @@ function App() {
           </section>
         </DashboardGrid>
       )}
-      {/* Pinned-event overlay: floats above the grid, resolved from the full
-          feed so it survives brush changes. Renders nothing when no pin. */}
-      <DetailCard />
     </div>
   )
 }
