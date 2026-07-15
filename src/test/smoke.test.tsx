@@ -19,9 +19,11 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /pulse/i })).toBeInTheDocument()
   })
 
-  it('renders the KPI tiles without data', () => {
+  it('shows loading skeletons on first load, before any data arrives', () => {
     renderApp()
-    // With no fetched data yet, KPIs render gracefully (all zero, no crash).
-    expect(screen.getByRole('group', { name: /total events/i })).toBeInTheDocument()
+    // Milestone 5: with no fetched data yet the query is loading, so the KPI row
+    // renders tile-shaped skeletons (not zeroed tiles) and the app doesn't crash.
+    expect(screen.getAllByTestId('kpi-skeleton')).toHaveLength(3)
+    expect(screen.getByTestId('freshness-indicator')).toBeInTheDocument()
   })
 })

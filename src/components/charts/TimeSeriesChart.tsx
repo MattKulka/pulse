@@ -1,15 +1,21 @@
 import { useMemo, useState } from 'react'
 import { scaleLinear, scaleTime } from 'd3'
 import { useVisibleQuakes } from '../../hooks/useVisibleQuakes'
+import { useQuakes } from '../../hooks/useQuakes'
 import { useUiStore } from '../../store/uiStore'
 import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
 import { binByTime, timeBinIndexOf } from '../../lib/transforms'
-import { niceTimeDomain } from '../../lib/scales'
+import { niceTimeDomain, MAG_BUCKETS } from '../../lib/scales'
+import { emptyReason } from '../../lib/emptyState'
 import { formatHM, formatEventCount } from '../../lib/format'
 import { Axis } from './primitives/Axis'
 import { Brush } from './primitives/Brush'
 import { Crosshair } from './primitives/Crosshair'
+import { ChartSkeleton } from '../states/Skeleton'
+import { EmptyState } from '../states/EmptyState'
+
+const ALL_BUCKET_KEYS = MAG_BUCKETS.map((b) => b.key)
 
 // 30-minute buckets: a readable ~48-bar resolution across a 24h feed.
 const BIN_MS = 30 * 60 * 1000
@@ -23,6 +29,8 @@ export function TimeSeriesChart() {
   // series visibility — hiding a magnitude bucket lowers its bars here while the
   // histogram, map and KPIs consume useFilteredQuakes() (visible ∩ brush).
   const quakes = useVisibleQuakes()
+  const { isLoading, data } = useQuakes()
+  const hiddenSeries = useUiStore((s) => s.hiddenSeries)
   const brushRange = useUiStore((s) => s.brushRange)
   const setBrushRange = useUiStore((s) => s.setBrushRange)
   const clearBrush = useUiStore((s) => s.clearBrush)
@@ -80,6 +88,23 @@ export function TimeSeriesChart() {
     return idx === -1 ? null : bins[idx]
   }, [hoverX, bins, x])
 
+  // First load (no data yet): show a chart-shaped skeleton instead of an empty
+  // plot. All hooks above run unconditionally, so this early return is safe.
+  if (isLoading) {
+    return <ChartSkeleton height={HEIGHT} />
+  }
+
+  // The time-series is deliberately NOT brush-filtered (it renders the full 24h
+  // and dims out-of-brush bars), so brush-empty must NOT blank it — pass
+  // brushRange: null so the only empty reasons here are all-hidden / no-data.
+  const reason = emptyReason({
+    hasData: (data?.length ?? 0) > 0,
+    filteredCount: quakes.length,
+    brushRange: null,
+    hiddenSeries,
+    allBucketKeys: ALL_BUCKET_KEYS,
+  })
+
   return (
     <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
       {/* Header row reserves its height whether or not the Clear button is
@@ -99,7 +124,9 @@ export function TimeSeriesChart() {
         ) : null}
       </div>
       <div ref={ref} className="mt-3" style={{ minHeight: HEIGHT }}>
-        {innerWidth > 0 ? (
+        {reason !== null ? (
+          <EmptyState reason={reason} className="min-h-[260px] justify-center" />
+        ) : innerWidth > 0 ? (
           <svg
             role="img"
             aria-label={label}
@@ -196,18 +223,6 @@ export function TimeSeriesChart() {
                 />
               ) : null}
             </g>
-            {!hasData ? (
-              <text
-                x={width / 2}
-                y={HEIGHT / 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="var(--text-muted)"
-                fontSize={13}
-              >
-                Waiting for earthquake data…
-              </text>
-            ) : null}
           </svg>
         ) : null}
       </div>

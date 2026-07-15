@@ -1,15 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { geoEquirectangular, geoPath } from 'd3'
 import { useFilteredQuakes } from '../../hooks/useFilteredQuakes'
+import { useQuakes } from '../../hooks/useQuakes'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
 import { useLandFeature } from '../../hooks/useLandFeature'
 import { useUiStore } from '../../store/uiStore'
-import { magRadius, magColorVar } from '../../lib/scales'
+import { magRadius, magColorVar, MAG_BUCKETS } from '../../lib/scales'
+import { emptyReason } from '../../lib/emptyState'
 import { prefersReducedMotion } from '../../lib/motion'
 import { formatMag, formatDepth, formatLocalTime } from '../../lib/format'
 import { Tooltip } from './primitives/Tooltip'
 import { Legend } from './Legend'
+import { ChartSkeleton } from '../states/Skeleton'
+import { EmptyState } from '../states/EmptyState'
 import type { Quake } from '../../types/quake'
+
+const ALL_BUCKET_KEYS = MAG_BUCKETS.map((b) => b.key)
 
 const MARGIN = { top: 8, right: 8, bottom: 8, left: 8 }
 // Equirectangular is a 2:1 projection; matching the box keeps letterboxing
@@ -27,9 +33,12 @@ interface Point {
 
 export function GeoScatter() {
   const quakes = useFilteredQuakes()
+  const { isLoading, data } = useQuakes()
   const land = useLandFeature()
   const [ref, { width }] = useResizeObserver<HTMLDivElement>()
 
+  const hiddenSeries = useUiStore((s) => s.hiddenSeries)
+  const brushRange = useUiStore((s) => s.brushRange)
   const hoveredQuakeId = useUiStore((s) => s.hoveredQuakeId)
   const setHoveredQuakeId = useUiStore((s) => s.setHoveredQuakeId)
   const pinnedQuakeId = useUiStore((s) => s.pinnedQuakeId)
@@ -135,6 +144,23 @@ export function GeoScatter() {
 
   const label = `World map of ${quakes.length} earthquakes, sized and colored by magnitude.`
 
+  // First load (quakes not yet fetched): a chart-shaped skeleton. All hooks
+  // above (incl. the exit-animation effect) run unconditionally first.
+  if (isLoading) {
+    return <ChartSkeleton height={MIN_INNER_HEIGHT + MARGIN.top + MARGIN.bottom} />
+  }
+
+  // The map consumes visible ∩ brush, so an empty brush window counts as empty.
+  // The Legend stays in the header even in the empty state so an all-hidden
+  // selection is directly recoverable.
+  const reason = emptyReason({
+    hasData: (data?.length ?? 0) > 0,
+    filteredCount: quakes.length,
+    brushRange,
+    hiddenSeries,
+    allBucketKeys: ALL_BUCKET_KEYS,
+  })
+
   return (
     <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
       {/* Header doubles as the dashboard-wide magnitude color key: the legend
@@ -150,7 +176,12 @@ export function GeoScatter() {
         className="relative mt-3"
         style={{ minHeight: MIN_INNER_HEIGHT }}
       >
-        {land.isError ? (
+        {reason !== null ? (
+          <EmptyState
+            reason={reason}
+            className="min-h-[200px] justify-center"
+          />
+        ) : land.isError ? (
           <p className="py-16 text-center text-sm text-content-muted">
             Map data unavailable.
           </p>

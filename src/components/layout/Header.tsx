@@ -1,4 +1,5 @@
 import { ThemeToggle } from '../ThemeToggle'
+import { StaleIndicator } from '../states/StaleIndicator'
 
 export function Header() {
   return (
@@ -11,14 +12,7 @@ export function Header() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Placeholder for the stale/updated indicator (Milestone 5). */}
-          <span
-            data-testid="freshness-indicator"
-            className="inline-flex items-center gap-1.5 text-sm text-content-muted"
-          >
-            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-chart-3" />
-            Live
-          </span>
+          <StaleIndicator />
           <ThemeToggle />
         </div>
       </div>

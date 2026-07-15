@@ -1,13 +1,19 @@
 import { useMemo, useState } from 'react'
 import { scaleLinear } from 'd3'
 import { useFilteredQuakes } from '../../hooks/useFilteredQuakes'
+import { useQuakes } from '../../hooks/useQuakes'
 import { useUiStore } from '../../store/uiStore'
 import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
 import { magnitudeHistogram, magBinIndexOf } from '../../lib/transforms'
-import { magColorVar } from '../../lib/scales'
+import { magColorVar, MAG_BUCKETS } from '../../lib/scales'
+import { emptyReason } from '../../lib/emptyState'
 import { formatEventCount } from '../../lib/format'
 import { Axis } from './primitives/Axis'
+import { ChartSkeleton } from '../states/Skeleton'
+import { EmptyState } from '../states/EmptyState'
+
+const ALL_BUCKET_KEYS = MAG_BUCKETS.map((b) => b.key)
 
 const STEP = 0.5
 const HEIGHT = 260
@@ -16,6 +22,9 @@ const BAR_GAP = 1
 
 export function MagnitudeHistogram() {
   const quakes = useFilteredQuakes()
+  const { isLoading, data } = useQuakes()
+  const hiddenSeries = useUiStore((s) => s.hiddenSeries)
+  const brushRange = useUiStore((s) => s.brushRange)
   const hoveredQuakeId = useUiStore((s) => s.hoveredQuakeId)
   const hoveredQuake = useQuakeById(hoveredQuakeId)
   const [ref, { width }] = useResizeObserver<HTMLDivElement>()
@@ -68,13 +77,30 @@ export function MagnitudeHistogram() {
       ? bins[emphasizedIndex]
       : null
 
+  // First load: chart-shaped skeleton. Safe early return — all hooks ran above.
+  if (isLoading) {
+    return <ChartSkeleton height={HEIGHT} />
+  }
+
+  // The histogram consumes visible ∩ brush, so an empty brush window is a real
+  // empty reason here (unlike the time-series).
+  const reason = emptyReason({
+    hasData: (data?.length ?? 0) > 0,
+    filteredCount: quakes.length,
+    brushRange,
+    hiddenSeries,
+    allBucketKeys: ALL_BUCKET_KEYS,
+  })
+
   return (
     <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
       <h2 className="text-sm font-medium text-content-muted">
         Magnitude distribution
       </h2>
       <div ref={ref} className="mt-3" style={{ minHeight: HEIGHT }}>
-        {innerWidth > 0 ? (
+        {reason !== null ? (
+          <EmptyState reason={reason} className="min-h-[260px] justify-center" />
+        ) : innerWidth > 0 ? (
           <svg
             role="img"
             aria-label={label}
@@ -157,18 +183,6 @@ export function MagnitudeHistogram() {
                 tickCount={Math.max(2, Math.floor(innerWidth / 60))}
               />
             </g>
-            {!hasData ? (
-              <text
-                x={width / 2}
-                y={HEIGHT / 2}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="var(--text-muted)"
-                fontSize={13}
-              >
-                Waiting for earthquake data…
-              </text>
-            ) : null}
           </svg>
         ) : null}
       </div>
