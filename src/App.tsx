@@ -4,6 +4,7 @@ import { KpiRow } from './components/kpi/KpiRow'
 import { TimeSeriesChart } from './components/charts/TimeSeriesChart'
 import { MagnitudeHistogram } from './components/charts/MagnitudeHistogram'
 import { GeoScatter } from './components/charts/GeoScatter'
+import { DetailCard } from './components/DetailCard'
 
 function App() {
   return (
@@ -25,6 +26,9 @@ function App() {
           <MagnitudeHistogram />
         </section>
       </DashboardGrid>
+      {/* Pinned-event overlay: floats above the grid, resolved from the full
+          feed so it survives brush changes. Renders nothing when no pin. */}
+      <DetailCard />
     </div>
   )
 }
