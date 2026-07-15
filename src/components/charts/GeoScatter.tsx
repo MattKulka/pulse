@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { geoEquirectangular, geoPath } from 'd3'
 import { useFilteredQuakes } from '../../hooks/useFilteredQuakes'
 import { useQuakes } from '../../hooks/useQuakes'
@@ -7,15 +7,39 @@ import { useLandFeature } from '../../hooks/useLandFeature'
 import { useUiStore } from '../../store/uiStore'
 import { magRadius, geoPointRadiusScale, magColorVar, MAG_BUCKETS } from '../../lib/scales'
 import { emptyReason } from '../../lib/emptyState'
+import { geoTableRows } from '../../lib/tableRows'
 import { prefersReducedMotion } from '../../lib/motion'
-import { formatMag, formatDepth, formatLocalTime } from '../../lib/format'
+import { formatMag, formatDepth, formatLocalTime, formatDateTime } from '../../lib/format'
 import { Tooltip } from './primitives/Tooltip'
 import { Legend } from './Legend'
 import { Skeleton } from '../states/Skeleton'
 import { EmptyState } from '../states/EmptyState'
+import {
+  DataTable,
+  DataTableDisclosure,
+  type DataTableColumn,
+} from '../a11y/DataTable'
 import type { Quake } from '../../types/quake'
 
 const ALL_BUCKET_KEYS = MAG_BUCKETS.map((b) => b.key)
+
+// Cap the accessible event table so it stays scannable on a large feed; the
+// caption notes the true total when rows are trimmed.
+const GEO_TABLE_LIMIT = 50
+
+// Accessible data-table fallback: one row per (filtered) event.
+const TABLE_COLUMNS: DataTableColumn<Quake>[] = [
+  { key: 'place', header: 'Place', cell: (q) => q.place },
+  { key: 'mag', header: 'Magnitude', align: 'right', cell: (q) => formatMag(q.mag) },
+  {
+    key: 'depth',
+    header: 'Depth (km)',
+    align: 'right',
+    // Header already carries the unit, so show the bare number here.
+    cell: (q) => (Number.isFinite(q.depth) ? q.depth.toFixed(1) : '—'),
+  },
+  { key: 'time', header: 'Time', cell: (q) => formatDateTime(q.time) },
+]
 
 const MARGIN = { top: 8, right: 8, bottom: 8, left: 8 }
 // Equirectangular is a 2:1 projection; matching the box keeps letterboxing
@@ -43,6 +67,10 @@ export function GeoScatter() {
   const setHoveredQuakeId = useUiStore((s) => s.setHoveredQuakeId)
   const pinnedQuakeId = useUiStore((s) => s.pinnedQuakeId)
   const setPinnedQuakeId = useUiStore((s) => s.setPinnedQuakeId)
+
+  // Unique per-instance clip id so a second mount can't collide on a hardcoded
+  // id (which would make both instances share/steal one <clipPath>).
+  const clipId = useId()
 
   const innerWidth = Math.max(0, width - MARGIN.left - MARGIN.right)
   const innerHeight = Math.max(
@@ -151,6 +179,13 @@ export function GeoScatter() {
 
   const label = `World map of ${quakes.length} earthquakes, sized and colored by magnitude.`
 
+  // Rows for the accessible table fallback: most significant events first, capped.
+  const tableRows = geoTableRows(quakes, GEO_TABLE_LIMIT)
+  const tableCaption =
+    quakes.length > tableRows.length
+      ? `Top ${tableRows.length} of ${quakes.length} earthquakes, by magnitude.`
+      : `All ${quakes.length} earthquakes, by magnitude.`
+
   // First load (quakes not yet fetched): a panel-shaped skeleton that reuses the
   // SAME ref + width/aspect sizing as the real map (plus a header row that
   // reserves the title + legend height). Sizing the plot block from the measured
@@ -194,7 +229,10 @@ export function GeoScatter() {
       {/* Header doubles as the dashboard-wide magnitude color key: the legend
           toggles hide/show each bucket across every panel. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h2 className="text-sm font-medium text-content-muted">
+        <h2
+          id="panel-geo-title"
+          className="text-sm font-medium text-content-muted"
+        >
           Global epicenters
         </h2>
         <Legend />
@@ -227,7 +265,7 @@ export function GeoScatter() {
                   near the edges don't bleed outside the panel. Defined in the
                   same (untransformed) plot space as the clipped group below. */}
               <defs>
-                <clipPath id="geo-plot-clip">
+                <clipPath id={clipId}>
                   <rect x={0} y={0} width={innerWidth} height={innerHeight} />
                 </clipPath>
               </defs>
@@ -241,7 +279,7 @@ export function GeoScatter() {
                   strokeWidth={0.5}
                 />
               ) : null}
-              <g clipPath="url(#geo-plot-clip)">
+              <g clipPath={`url(#${clipId})`}>
               {points.map((p) => {
                 const isActive = p.id === hoveredQuakeId || p.id === pinnedQuakeId
                 return (
@@ -363,6 +401,16 @@ export function GeoScatter() {
           </Tooltip>
         ) : null}
       </div>
+      {tableRows.length > 0 ? (
+        <DataTableDisclosure summary="View data table" testId="geo-data-table">
+          <DataTable
+            caption={tableCaption}
+            columns={TABLE_COLUMNS}
+            rows={tableRows}
+            rowKey={(q) => q.id}
+          />
+        </DataTableDisclosure>
+      ) : null}
     </div>
   )
 }

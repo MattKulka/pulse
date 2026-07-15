@@ -34,7 +34,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
       aria-pressed={isDark}
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} theme`}
-      className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm font-medium text-content shadow-sm transition-colors hover:bg-surface"
+      className="inline-flex items-center gap-2 rounded-md border border-border bg-surface-elevated px-3 py-2 text-sm font-medium text-content shadow-sm transition-colors hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-chart-1 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated"
     >
       <span aria-hidden="true">{isDark ? '☀️' : '\u{1F319}'}</span>
       <span>{isDark ? 'Light' : 'Dark'} mode</span>

@@ -32,8 +32,13 @@ export function KpiTile({ label, value, unit, format = defaultFormat }: KpiTileP
         aria-hidden="true"
         className="absolute inset-y-0 left-0 w-1 bg-chart-1"
       />
-      <dt className="text-sm font-medium text-content-muted">{label}</dt>
-      <dd className="mt-1 flex items-baseline gap-1">
+      {/* The group's aria-label already conveys "label: value unit" as a single
+          settled announcement, so the visual dt/dd are hidden from AT to avoid
+          announcing the label + (mid-animation) value a second time. */}
+      <dt aria-hidden="true" className="text-sm font-medium text-content-muted">
+        {label}
+      </dt>
+      <dd aria-hidden="true" className="mt-1 flex items-baseline gap-1">
         <span className="text-3xl font-semibold tabular-nums tracking-tight text-content">
           {display}
         </span>

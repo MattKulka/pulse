@@ -5,15 +5,30 @@ import { useQuakes } from '../../hooks/useQuakes'
 import { useUiStore } from '../../store/uiStore'
 import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
-import { magnitudeHistogram, magBinIndexOf } from '../../lib/transforms'
+import { magnitudeHistogram, magBinIndexOf, type MagBin } from '../../lib/transforms'
 import { magColorVar, MAG_BUCKETS } from '../../lib/scales'
 import { emptyReason } from '../../lib/emptyState'
 import { formatEventCount } from '../../lib/format'
 import { Axis } from './primitives/Axis'
 import { ChartSkeleton } from '../states/Skeleton'
 import { EmptyState } from '../states/EmptyState'
+import {
+  DataTable,
+  DataTableDisclosure,
+  type DataTableColumn,
+} from '../a11y/DataTable'
 
 const ALL_BUCKET_KEYS = MAG_BUCKETS.map((b) => b.key)
+
+// Accessible data-table fallback: the same magnitude buckets the bars encode.
+const TABLE_COLUMNS: DataTableColumn<MagBin>[] = [
+  {
+    key: 'range',
+    header: 'Magnitude range',
+    cell: (b) => `M ${b.x0.toFixed(1)}–${b.x1.toFixed(1)}`,
+  },
+  { key: 'events', header: 'Events', align: 'right', cell: (b) => b.count },
+]
 
 const STEP = 0.5
 const HEIGHT = 260
@@ -94,7 +109,10 @@ export function MagnitudeHistogram() {
 
   return (
     <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
-      <h2 className="text-sm font-medium text-content-muted">
+      <h2
+        id="panel-histogram-title"
+        className="text-sm font-medium text-content-muted"
+      >
         Magnitude distribution
       </h2>
       <div ref={ref} className="mt-3" style={{ minHeight: HEIGHT }}>
@@ -186,6 +204,19 @@ export function MagnitudeHistogram() {
           </svg>
         ) : null}
       </div>
+      {hasData ? (
+        <DataTableDisclosure
+          summary="View data table"
+          testId="histogram-data-table"
+        >
+          <DataTable
+            caption={`Earthquake counts by magnitude range (${quakes.length} events).`}
+            columns={TABLE_COLUMNS}
+            rows={bins}
+            rowKey={(b) => String(b.x0)}
+          />
+        </DataTableDisclosure>
+      ) : null}
     </div>
   )
 }

@@ -5,7 +5,7 @@ import { useQuakes } from '../../hooks/useQuakes'
 import { useUiStore } from '../../store/uiStore'
 import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
-import { binByTime, timeBinIndexOf } from '../../lib/transforms'
+import { binByTime, timeBinIndexOf, type TimeBin } from '../../lib/transforms'
 import { niceTimeDomain, MAG_BUCKETS } from '../../lib/scales'
 import { emptyReason } from '../../lib/emptyState'
 import { formatHM, formatEventCount } from '../../lib/format'
@@ -14,8 +14,19 @@ import { Brush } from './primitives/Brush'
 import { Crosshair } from './primitives/Crosshair'
 import { ChartSkeleton } from '../states/Skeleton'
 import { EmptyState } from '../states/EmptyState'
+import {
+  DataTable,
+  DataTableDisclosure,
+  type DataTableColumn,
+} from '../a11y/DataTable'
 
 const ALL_BUCKET_KEYS = MAG_BUCKETS.map((b) => b.key)
+
+// Accessible data-table fallback: the same 30-minute bins the bars encode.
+const TABLE_COLUMNS: DataTableColumn<TimeBin>[] = [
+  { key: 'window', header: 'Time window', cell: (b) => `${formatHM(b.t0)}–${formatHM(b.t1)}` },
+  { key: 'events', header: 'Events', align: 'right', cell: (b) => b.count },
+]
 
 // 30-minute buckets: a readable ~48-bar resolution across a 24h feed.
 const BIN_MS = 30 * 60 * 1000
@@ -110,7 +121,10 @@ export function TimeSeriesChart() {
       {/* Header row reserves its height whether or not the Clear button is
           present, so the button appearing never shifts the layout. */}
       <div className="flex min-h-[28px] items-center justify-between gap-3">
-        <h2 className="text-sm font-medium text-content-muted">
+        <h2
+          id="panel-timeseries-title"
+          className="text-sm font-medium text-content-muted"
+        >
           Events over time (24h)
         </h2>
         {brushRange !== null ? (
@@ -226,6 +240,19 @@ export function TimeSeriesChart() {
           </svg>
         ) : null}
       </div>
+      {hasData ? (
+        <DataTableDisclosure
+          summary="View data table"
+          testId="timeseries-data-table"
+        >
+          <DataTable
+            caption={`Events per 30-minute window over the last 24 hours (${bins.length} windows, ${quakes.length} events).`}
+            columns={TABLE_COLUMNS}
+            rows={bins}
+            rowKey={(b) => b.t0.toISOString()}
+          />
+        </DataTableDisclosure>
+      ) : null}
     </div>
   )
 }
