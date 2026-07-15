@@ -1,12 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { scaleLinear, scaleTime } from 'd3'
 import { useQuakes } from '../../hooks/useQuakes'
 import { useUiStore } from '../../store/uiStore'
+import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
-import { binByTime } from '../../lib/transforms'
+import { binByTime, timeBinIndexOf } from '../../lib/transforms'
 import { niceTimeDomain } from '../../lib/scales'
+import { formatHM, formatEventCount } from '../../lib/format'
 import { Axis } from './primitives/Axis'
 import { Brush } from './primitives/Brush'
+import { Crosshair } from './primitives/Crosshair'
 
 // 30-minute buckets: a readable ~48-bar resolution across a 24h feed.
 const BIN_MS = 30 * 60 * 1000
@@ -23,7 +26,12 @@ export function TimeSeriesChart() {
   const brushRange = useUiStore((s) => s.brushRange)
   const setBrushRange = useUiStore((s) => s.setBrushRange)
   const clearBrush = useUiStore((s) => s.clearBrush)
+  const hoveredQuakeId = useUiStore((s) => s.hoveredQuakeId)
+  const hoveredQuake = useQuakeById(hoveredQuakeId)
   const [ref, { width }] = useResizeObserver<HTMLDivElement>()
+  // Local hover x (plot-space px) driving the crosshair; distinct from the
+  // cross-panel hovered quake. null when the pointer is off the plot.
+  const [hoverX, setHoverX] = useState<number | null>(null)
 
   const bins = useMemo(() => binByTime(quakes, BIN_MS), [quakes])
   const domain = useMemo(() => niceTimeDomain(quakes), [quakes])
@@ -59,6 +67,18 @@ export function TimeSeriesChart() {
     if (brushRange === null) return true
     return t1.getTime() > brushRange[0].getTime() && t0.getTime() < brushRange[1].getTime()
   }
+
+  // Cross-panel reflection: the time bin containing the globally hovered quake.
+  const hoveredBinIndex =
+    hoveredQuake !== null ? timeBinIndexOf(bins, hoveredQuake.time) : -1
+  const hoveredBin = hoveredBinIndex !== -1 ? bins[hoveredBinIndex] : null
+
+  // Local crosshair: resolve the hovered plot-x to the bin under the cursor.
+  const crosshairBin = useMemo(() => {
+    if (hoverX === null || bins.length === 0) return null
+    const idx = timeBinIndexOf(bins, x.invert(hoverX))
+    return idx === -1 ? null : bins[idx]
+  }, [hoverX, bins, x])
 
   return (
     <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
@@ -123,6 +143,29 @@ export function TimeSeriesChart() {
                   />
                 )
               })}
+              {/* Cross-panel reflection: highlight the bin holding the quake
+                  hovered elsewhere (on the map). A subtle full-height band plus
+                  a marker tick at the bar top — non-color signals, so the
+                  emphasis reads without relying on hue. */}
+              {hoveredBin !== null ? (
+                <g style={{ pointerEvents: 'none' }} data-testid="ts-hover-bin">
+                  <rect
+                    x={x(hoveredBin.t0)}
+                    y={0}
+                    width={Math.max(0, x(hoveredBin.t1) - x(hoveredBin.t0) - BAR_GAP)}
+                    height={innerHeight}
+                    fill="var(--text)"
+                    fillOpacity={0.06}
+                  />
+                  <rect
+                    x={x(hoveredBin.t0)}
+                    y={y(hoveredBin.count) - 2}
+                    width={Math.max(0, x(hoveredBin.t1) - x(hoveredBin.t0) - BAR_GAP)}
+                    height={3}
+                    fill="var(--text)"
+                  />
+                </g>
+              ) : null}
               {/* Bottom (time) axis. */}
               <Axis
                 scale={x}
@@ -131,14 +174,27 @@ export function TimeSeriesChart() {
                 tickCount={Math.max(2, Math.floor(innerWidth / 90))}
               />
               {/* Brush overlay: drawn last so it sits above the bars and axis
-                  and receives pointer/touch input across the whole plot. */}
+                  and receives pointer/touch input across the whole plot. Also
+                  reports hover x so the crosshair can share this one surface —
+                  hover shows the crosshair, drag brushes. */}
               <Brush
                 xScale={x}
                 innerWidth={innerWidth}
                 innerHeight={innerHeight}
                 brushRange={brushRange}
                 onBrush={setBrushRange}
+                onHover={setHoverX}
               />
+              {/* Local crosshair guide + bin label. pointerEvents:none, drawn
+                  above the brush so it never blocks the drag surface. */}
+              {hoverX !== null && crosshairBin !== null ? (
+                <Crosshair
+                  x={hoverX}
+                  innerWidth={innerWidth}
+                  innerHeight={innerHeight}
+                  label={`${formatHM(crosshairBin.t0)}–${formatHM(crosshairBin.t1)} · ${formatEventCount(crosshairBin.count)}`}
+                />
+              ) : null}
             </g>
             {!hasData ? (
               <text

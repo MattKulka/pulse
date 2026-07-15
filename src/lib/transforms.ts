@@ -78,6 +78,30 @@ export function magnitudeHistogram(quakes: Quake[], step = 0.5): MagBin[] {
   return bins;
 }
 
+/**
+ * Index of the time bin whose [t0, t1) interval contains `time`, or -1 if none.
+ * Mirrors binByTime's half-open bucketing (inclusive start, exclusive end).
+ */
+export function timeBinIndexOf(bins: TimeBin[], time: Date): number {
+  const t = time.getTime();
+  return bins.findIndex((b) => t >= b.t0.getTime() && t < b.t1.getTime());
+}
+
+/**
+ * Index of the magnitude bucket whose [x0, x1) interval contains `mag`, or -1 if
+ * none. The final bucket is treated as closed on the right so a value equal to
+ * the dataset maximum still lands in the last bucket (matching magnitudeHistogram).
+ */
+export function magBinIndexOf(bins: MagBin[], mag: number): number {
+  for (let i = 0; i < bins.length; i++) {
+    const b = bins[i];
+    if (mag >= b.x0 && (mag < b.x1 || i === bins.length - 1)) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 export function filterByRange(quakes: Quake[], range: [Date, Date] | null): Quake[] {
   if (range === null) {
     return quakes;

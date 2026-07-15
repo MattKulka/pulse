@@ -1,9 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { scaleLinear } from 'd3'
 import { useFilteredQuakes } from '../../hooks/useFilteredQuakes'
+import { useUiStore } from '../../store/uiStore'
+import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
-import { magnitudeHistogram } from '../../lib/transforms'
+import { magnitudeHistogram, magBinIndexOf } from '../../lib/transforms'
 import { magColorVar } from '../../lib/scales'
+import { formatEventCount } from '../../lib/format'
 import { Axis } from './primitives/Axis'
 
 const STEP = 0.5
@@ -13,7 +16,11 @@ const BAR_GAP = 1
 
 export function MagnitudeHistogram() {
   const quakes = useFilteredQuakes()
+  const hoveredQuakeId = useUiStore((s) => s.hoveredQuakeId)
+  const hoveredQuake = useQuakeById(hoveredQuakeId)
   const [ref, { width }] = useResizeObserver<HTMLDivElement>()
+  // Local per-bar hover (bucket index) for a lightweight count tooltip; null off-bar.
+  const [hoverBucket, setHoverBucket] = useState<number | null>(null)
 
   const bins = useMemo(() => magnitudeHistogram(quakes, STEP), [quakes])
 
@@ -50,6 +57,17 @@ export function MagnitudeHistogram() {
       ? `Magnitude distribution of ${quakes.length} earthquakes; most common bucket M ${peak.x0.toFixed(1)}–${peak.x1.toFixed(1)} with ${peak.count} events.`
       : 'Magnitude distribution: no events yet.'
 
+  // Cross-panel reflection: the bucket containing the globally hovered quake.
+  const hoveredBucketIndex =
+    hoveredQuake !== null ? magBinIndexOf(bins, hoveredQuake.mag) : -1
+  // Emphasize the reflected bucket, or the locally hovered bar when no cross-
+  // panel hover is active. Reflection takes precedence.
+  const emphasizedIndex = hoveredBucketIndex !== -1 ? hoveredBucketIndex : hoverBucket
+  const emphasizedBin =
+    emphasizedIndex !== null && emphasizedIndex >= 0 && emphasizedIndex < bins.length
+      ? bins[emphasizedIndex]
+      : null
+
   return (
     <div className="rounded-xl border border-border bg-surface-elevated px-5 py-4 shadow-sm">
       <h2 className="text-sm font-medium text-content-muted">
@@ -78,7 +96,7 @@ export function MagnitudeHistogram() {
                   every browser (WebKit does not transition SVG y/height attrs).
                   Colored by bucket magnitude via magColorVar; the x-axis already
                   encodes magnitude, so color is a redundant (not sole) signal. */}
-              {bins.map((bin) => {
+              {bins.map((bin, i) => {
                 const bx = x(bin.x0)
                 const bw = Math.max(0, x(bin.x1) - bx - BAR_GAP)
                 const scaleY = (innerHeight - y(bin.count)) / innerHeight
@@ -92,10 +110,45 @@ export function MagnitudeHistogram() {
                     width={bw}
                     height={innerHeight}
                     fill={magColorVar(mid)}
-                    style={{ transform: `scaleY(${scaleY})` }}
+                    style={{ transform: `scaleY(${scaleY})`, cursor: 'pointer' }}
+                    onPointerEnter={() => setHoverBucket(i)}
+                    onPointerLeave={() =>
+                      setHoverBucket((cur) => (cur === i ? null : cur))
+                    }
                   />
                 )
               })}
+              {/* Cross-panel reflection / local bar hover: emphasize the bucket
+                  with a full-height band + a marker tick at the bar top, plus a
+                  small count label. Non-color signals, so it reads without hue. */}
+              {emphasizedBin !== null ? (
+                <g style={{ pointerEvents: 'none' }} data-testid="hist-emphasis">
+                  <rect
+                    x={x(emphasizedBin.x0)}
+                    y={0}
+                    width={Math.max(0, x(emphasizedBin.x1) - x(emphasizedBin.x0) - BAR_GAP)}
+                    height={innerHeight}
+                    fill="var(--text)"
+                    fillOpacity={0.06}
+                  />
+                  <rect
+                    x={x(emphasizedBin.x0)}
+                    y={y(emphasizedBin.count) - 2}
+                    width={Math.max(0, x(emphasizedBin.x1) - x(emphasizedBin.x0) - BAR_GAP)}
+                    height={3}
+                    fill="var(--text)"
+                  />
+                  <text
+                    x={(x(emphasizedBin.x0) + x(emphasizedBin.x1)) / 2}
+                    y={Math.max(9, y(emphasizedBin.count) - 8)}
+                    textAnchor="middle"
+                    fontSize={11}
+                    fill="var(--text)"
+                  >
+                    {formatEventCount(emphasizedBin.count)}
+                  </text>
+                </g>
+              ) : null}
               {/* Bottom (magnitude) axis. */}
               <Axis
                 scale={x}

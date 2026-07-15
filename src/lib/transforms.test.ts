@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import type { Quake } from '../types/quake';
-import { computeKpis, binByTime, magnitudeHistogram, filterByRange } from './transforms';
+import {
+  computeKpis,
+  binByTime,
+  magnitudeHistogram,
+  filterByRange,
+  timeBinIndexOf,
+  magBinIndexOf,
+} from './transforms';
 
 function q(partial: Partial<Quake> & { id: string }): Quake {
   return {
@@ -88,6 +95,42 @@ describe('magnitudeHistogram', () => {
     expect(hist[0].x1).toBeCloseTo(1.6, 10);
     expect(hist[hist.length - 1].x0).toBeCloseTo(3.6, 10);
     expect(hist[hist.length - 1].x1).toBeCloseTo(4.1, 10);
+  });
+});
+
+describe('timeBinIndexOf', () => {
+  const hour = 60 * 60 * 1000;
+  const bins = binByTime(fixture, hour); // [00-01), [01-02), [02-03)
+
+  it('finds the bin containing a time (inclusive start)', () => {
+    expect(timeBinIndexOf(bins, new Date('2024-01-01T00:00:00Z'))).toBe(0);
+    expect(timeBinIndexOf(bins, new Date('2024-01-01T00:30:00Z'))).toBe(0);
+    expect(timeBinIndexOf(bins, new Date('2024-01-01T02:30:00Z'))).toBe(2);
+  });
+
+  it('returns -1 when no bin contains the time', () => {
+    expect(timeBinIndexOf(bins, new Date('2023-12-31T00:00:00Z'))).toBe(-1);
+    // exactly the exclusive end of the last bin falls outside
+    expect(timeBinIndexOf(bins, new Date('2024-01-01T03:00:00Z'))).toBe(-1);
+  });
+});
+
+describe('magBinIndexOf', () => {
+  const bins = magnitudeHistogram(fixture, 0.5); // [2.0,2.5)...[5.0,5.5)
+
+  it('finds the bucket containing a magnitude (inclusive start)', () => {
+    expect(magBinIndexOf(bins, 2.0)).toBe(0);
+    expect(magBinIndexOf(bins, 3.5)).toBe(3);
+    expect(magBinIndexOf(bins, 5.0)).toBe(6);
+  });
+
+  it('treats the final bucket as closed on the right so the max lands in it', () => {
+    // exact upper edge of the dataset max stays in the last bucket
+    expect(magBinIndexOf(bins, 5.5)).toBe(6);
+  });
+
+  it('returns -1 for a magnitude below the first bucket', () => {
+    expect(magBinIndexOf(bins, 1.0)).toBe(-1);
   });
 });
 

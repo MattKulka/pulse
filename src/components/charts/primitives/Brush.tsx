@@ -13,6 +13,12 @@ export interface BrushProps {
   brushRange: [Date, Date] | null
   /** Fired continuously while dragging (and on click-to-clear with null). */
   onBrush: (range: [Date, Date] | null) => void
+  /**
+   * Optional hover reporter: plot-space x while the pointer is over the plot,
+   * null on leave. Lets a sibling crosshair share this single pointer surface so
+   * hover (crosshair) and drag (brush) coexist without overlapping overlays.
+   */
+  onHover?: (plotX: number | null) => void
 }
 
 interface DragState {
@@ -48,6 +54,7 @@ export function Brush({
   innerHeight,
   brushRange,
   onBrush,
+  onHover,
 }: BrushProps) {
   const overlayRef = useRef<SVGRectElement>(null)
   const metaRef = useRef<DragMeta | null>(null)
@@ -75,6 +82,9 @@ export function Brush({
   }
 
   function handlePointerMove(e: ReactPointerEvent<SVGRectElement>): void {
+    // Report hover position on every move (even mid-drag) so a sibling crosshair
+    // can track the cursor; the drag logic below is gated separately.
+    onHover?.(localX(e.clientX))
     if (drag === null) return
     const px = localX(e.clientX)
     setDrag({ startX: drag.startX, curX: px })
@@ -153,6 +163,7 @@ export function Brush({
         onPointerMove={handlePointerMove}
         onPointerUp={endDrag}
         onPointerCancel={cancelDrag}
+        onPointerLeave={() => onHover?.(null)}
       />
       {selection !== null && selection.x1 - selection.x0 >= 1 ? (
         <g style={{ pointerEvents: 'none' }} data-testid="brush-selection">
