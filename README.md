@@ -45,6 +45,22 @@ to it instantly — then clear it and everything animates back.*
 - **Legend series toggles.** The magnitude legend doubles as a filter — toggle a
   bucket and those events animate out of every panel at once.
 
+## Design — "Seismic Mission-Control"
+
+A cinematic, dark, ops-room aesthetic that leans into the name: earthquakes
+literally **pulse**. On the world map, significant quakes emit expanding sonar
+rings (staggered so it reads as a living field, not a strobe) over a faint
+graticule grid and glowing continent outlines; every epicenter carries a colored
+glow. Magnitude uses a **sequential "heat" ramp** (indigo→amber, monotonic
+luminance — a plasma-style scale that's colorblind-safe and reads as intensity),
+reserved separately from an electric-cyan UI accent. Glass panels, glowing mono
+figures, gradient chart bars, and a staggered first-load entrance complete it.
+
+All motion — ripples, background drift, bar draw-in, count-ups, the entrance — is
+gated behind `prefers-reduced-motion` and animates only `transform`/opacity, so it
+tweens smoothly in every browser (including WebKit/Safari) and goes fully still for
+users who ask for reduced motion. A clean light "day-ops" theme is included.
+
 ## Architecture
 
 ### Data pipeline
