@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Quake } from '../types/quake';
-import { magRadius, niceTimeDomain, magColorVar } from './scales';
+import { magRadius, niceTimeDomain, magColorVar, magBucketKey, MAG_BUCKETS } from './scales';
 
 function q(id: string, time: string): Quake {
   return { id, time: new Date(time), mag: 1, depth: 10, lat: 0, lng: 0, place: 'x' };
@@ -84,5 +84,36 @@ describe('magColorVar', () => {
 
   it('returns the least-severe color for a non-finite magnitude (NaN guard)', () => {
     expect(magColorVar(NaN)).toBe('var(--c-1)');
+  });
+});
+
+describe('magBucketKey', () => {
+  it('buckets by magnitude at the half-open boundaries', () => {
+    expect(magBucketKey(1.9)).toBe('lt2');
+    expect(magBucketKey(2)).toBe('2-3');
+    expect(magBucketKey(2.9)).toBe('2-3');
+    expect(magBucketKey(3)).toBe('3-4');
+    expect(magBucketKey(4)).toBe('4-5');
+    expect(magBucketKey(5)).toBe('5-6');
+    expect(magBucketKey(6)).toBe('gte6');
+    expect(magBucketKey(7.5)).toBe('gte6');
+  });
+
+  it('maps a very small / negative magnitude to the first bucket', () => {
+    expect(magBucketKey(-1)).toBe('lt2');
+    expect(magBucketKey(0)).toBe('lt2');
+  });
+
+  it('maps a non-finite magnitude to the first bucket (consistent with magColorVar)', () => {
+    expect(magBucketKey(NaN)).toBe('lt2');
+    expect(magBucketKey(Infinity)).toBe('lt2');
+  });
+
+  it('stays consistent with magColorVar for every bucket', () => {
+    for (const b of MAG_BUCKETS) {
+      const sample = Number.isFinite(b.min) ? b.min : b.max - 1;
+      expect(magBucketKey(sample)).toBe(b.key);
+      expect(magColorVar(sample)).toBe(b.colorVar);
+    }
   });
 });

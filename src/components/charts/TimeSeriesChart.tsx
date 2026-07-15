@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { scaleLinear, scaleTime } from 'd3'
-import { useQuakes } from '../../hooks/useQuakes'
+import { useVisibleQuakes } from '../../hooks/useVisibleQuakes'
 import { useUiStore } from '../../store/uiStore'
 import { useQuakeById } from '../../hooks/useQuakeById'
 import { useResizeObserver } from '../../hooks/useResizeObserver'
@@ -18,11 +18,11 @@ const MARGIN = { top: 12, right: 14, bottom: 28, left: 34 }
 const BAR_GAP = 1
 
 export function TimeSeriesChart() {
-  // The time-series always renders the FULL 24h context (unfiltered) so the
-  // brush selection stays visible and adjustable; the histogram, map and KPIs
-  // consume useFilteredQuakes() and narrow to the selection instead.
-  const data = useQuakes().data
-  const quakes = useMemo(() => data ?? [], [data])
+  // The time-series renders the full 24h time context (it is NOT brush-filtered,
+  // so the brush selection stays visible and adjustable) but DOES respect legend
+  // series visibility — hiding a magnitude bucket lowers its bars here while the
+  // histogram, map and KPIs consume useFilteredQuakes() (visible ∩ brush).
+  const quakes = useVisibleQuakes()
   const brushRange = useUiStore((s) => s.brushRange)
   const setBrushRange = useUiStore((s) => s.setBrushRange)
   const clearBrush = useUiStore((s) => s.clearBrush)

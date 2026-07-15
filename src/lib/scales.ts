@@ -26,12 +26,52 @@ export function niceTimeDomain(quakes: Quake[]): [Date, Date] {
   return [new Date(lo), new Date(hi)];
 }
 
+export interface MagBucket {
+  /** Stable id used as the hidden-series key in the UI store. */
+  key: string;
+  /** Short legend label, e.g. `M<2`, `2–3`, `≥6`. */
+  label: string;
+  /** CSS custom-property reference for the bucket color. */
+  colorVar: string;
+  /** Lower bound, inclusive. */
+  min: number;
+  /** Upper bound, exclusive. */
+  max: number;
+}
+
+/**
+ * Single source of truth for the magnitude buckets. Boundaries match the
+ * original magColorVar cutoffs (<2, 2–3, 3–4, 4–5, 5–6, ≥6 → --c-1..--c-6),
+ * with each bucket half-open [min, max). Consumed by the legend, magBucketKey,
+ * and magColorVar so the color key and series toggles never drift apart.
+ */
+export const MAG_BUCKETS: readonly MagBucket[] = [
+  { key: 'lt2', label: 'M<2', colorVar: 'var(--c-1)', min: -Infinity, max: 2 },
+  { key: '2-3', label: '2–3', colorVar: 'var(--c-2)', min: 2, max: 3 },
+  { key: '3-4', label: '3–4', colorVar: 'var(--c-3)', min: 3, max: 4 },
+  { key: '4-5', label: '4–5', colorVar: 'var(--c-4)', min: 4, max: 5 },
+  { key: '5-6', label: '5–6', colorVar: 'var(--c-5)', min: 5, max: 6 },
+  { key: 'gte6', label: '≥6', colorVar: 'var(--c-6)', min: 6, max: Infinity },
+];
+
+/**
+ * The bucket key a magnitude falls into. A non-finite magnitude maps to the
+ * first (least-severe) bucket, consistent with magColorVar's NaN handling.
+ */
+export function magBucketKey(mag: number): string {
+  if (!Number.isFinite(mag)) {
+    return MAG_BUCKETS[0].key;
+  }
+  for (const b of MAG_BUCKETS) {
+    if (mag < b.max) {
+      return b.key;
+    }
+  }
+  return MAG_BUCKETS[MAG_BUCKETS.length - 1].key;
+}
+
 export function magColorVar(mag: number): string {
-  if (!Number.isFinite(mag)) return 'var(--c-1)';
-  if (mag < 2) return 'var(--c-1)';
-  if (mag < 3) return 'var(--c-2)';
-  if (mag < 4) return 'var(--c-3)';
-  if (mag < 5) return 'var(--c-4)';
-  if (mag < 6) return 'var(--c-5)';
-  return 'var(--c-6)';
+  const key = magBucketKey(mag);
+  const bucket = MAG_BUCKETS.find((b) => b.key === key) ?? MAG_BUCKETS[0];
+  return bucket.colorVar;
 }

@@ -1,15 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-
-/**
- * Detect a static reduced-motion preference. Read lazily (not at module load)
- * so tests and SSR-less environments that stub `matchMedia` behave predictably.
- */
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return false
-  }
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
-}
+import { prefersReducedMotion } from '../lib/motion'
 
 // Classic ease-out cubic: fast start, gentle settle.
 function easeOutCubic(t: number): number {
